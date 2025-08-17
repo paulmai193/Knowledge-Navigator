@@ -304,7 +304,117 @@ class KnowledgeNavigatorAPITester:
             print(f"   Processed Documents: {response.get('processed_documents', 0)}")
             print(f"   Total Insights: {response.get('total_insights', 0)}")
             print(f"   Total Projects: {response.get('total_projects', 0)}")
+            print(f"   Total Q&A Sessions: {response.get('total_qa_sessions', 0)}")
             print(f"   Processing Rate: {response.get('processing_rate', 0):.1f}%")
+        
+        return success
+
+    def test_qa_history_empty(self):
+        """Test getting Q&A history when none exist"""
+        success, response = self.run_test(
+            "Get Q&A History (Empty)",
+            "GET",
+            "api/qa/history",
+            200
+        )
+        
+        if success and 'qa_history' in response:
+            qa_history = response['qa_history']
+            print(f"   Found {len(qa_history)} Q&A session(s)")
+        
+        return success
+
+    def test_ask_question_no_documents(self):
+        """Test asking a question when no documents exist"""
+        question_data = {
+            "question": "What are the key insights from the documents?"
+        }
+        
+        success, response = self.run_test(
+            "Ask Question (No Documents)",
+            "POST",
+            "api/qa/ask",
+            200,
+            data=question_data
+        )
+        
+        if success:
+            print(f"   Question: {response.get('question', 'Unknown')}")
+            print(f"   Answer: {response.get('answer', 'Unknown')[:100]}...")
+            print(f"   Referenced Documents: {len(response.get('referenced_documents', []))}")
+            print(f"   Referenced Insights: {len(response.get('referenced_insights', []))}")
+        
+        return success
+
+    def test_ask_question_empty(self):
+        """Test asking an empty question"""
+        question_data = {
+            "question": ""
+        }
+        
+        success, response = self.run_test(
+            "Ask Empty Question",
+            "POST",
+            "api/qa/ask",
+            400,  # Should return 400 for empty question
+            data=question_data
+        )
+        return success
+
+    def test_ask_question_with_documents(self):
+        """Test asking a question when documents exist"""
+        test_questions = [
+            "What are the key technical insights from the uploaded documents?",
+            "What are the best practices mentioned in the documents?",
+            "Summarize the key technical recommendations",
+            "What are the main project insights?",
+            "How should I implement UI integration testing?"
+        ]
+        
+        all_success = True
+        
+        for i, question in enumerate(test_questions):
+            question_data = {
+                "question": question
+            }
+            
+            success, response = self.run_test(
+                f"Ask Question {i+1}: '{question[:50]}...'",
+                "POST",
+                "api/qa/ask",
+                200,
+                data=question_data
+            )
+            
+            if success:
+                print(f"   Question: {response.get('question', 'Unknown')}")
+                print(f"   Answer: {response.get('answer', 'Unknown')[:150]}...")
+                print(f"   Referenced Documents: {len(response.get('referenced_documents', []))}")
+                print(f"   Referenced Insights: {len(response.get('referenced_insights', []))}")
+                
+                # Wait a bit between questions to avoid overwhelming the AI
+                time.sleep(2)
+            else:
+                all_success = False
+        
+        return all_success
+
+    def test_qa_history_after_questions(self):
+        """Test getting Q&A history after asking questions"""
+        success, response = self.run_test(
+            "Get Q&A History (After Questions)",
+            "GET",
+            "api/qa/history",
+            200
+        )
+        
+        if success and 'qa_history' in response:
+            qa_history = response['qa_history']
+            print(f"   Found {len(qa_history)} Q&A session(s)")
+            
+            for i, qa in enumerate(qa_history[:3]):  # Show first 3
+                print(f"   Q{i+1}: {qa.get('question', 'Unknown')[:50]}...")
+                print(f"   A{i+1}: {qa.get('answer', 'Unknown')[:50]}...")
         
         return success
 
