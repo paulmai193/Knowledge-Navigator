@@ -479,6 +479,88 @@ function App() {
             </Card>
           </TabsContent>
 
+          {/* Q&A Tab */}
+          <TabsContent value="qa" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageCircle className="w-5 h-5 text-purple-600" />
+                  <span>Q&A Sessions</span>
+                </CardTitle>
+                <CardDescription>
+                  Ask questions and get AI-powered answers from your documents
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAskQuestion} className="mb-6">
+                  <div className="flex space-x-2">
+                    <Input
+                      value={currentQuestion}
+                      onChange={(e) => setCurrentQuestion(e.target.value)}
+                      placeholder="Ask a question about your documents..."
+                      className="flex-1"
+                      disabled={isAsking}
+                    />
+                    <Button type="submit" disabled={isAsking || !currentQuestion.trim()}>
+                      {isAsking ? (
+                        <>
+                          <Clock className="w-4 h-4 mr-2 animate-spin" />
+                          Thinking...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Ask
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {qaHistory.map((qa) => (
+                    <div key={qa.id} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                      <div className="flex items-start space-x-3 mb-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-900">{qa.question}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+                            <Bot className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-700 leading-relaxed">{qa.answer}</p>
+                          <div className="flex items-center mt-2 text-xs text-slate-500">
+                            <Clock className="w-3 h-3 mr-1" />
+                            <span>{new Date(qa.created_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                  
+                  {qaHistory.length === 0 && (
+                    <div className="text-center py-12">
+                      <MessageCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">No questions yet</h3>
+                      <p className="text-slate-600">Ask your first question to get AI-powered insights from your documents</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Projects Tab */}
           <TabsContent value="projects" className="space-y-6">
             <div className="flex items-center justify-between">
