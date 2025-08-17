@@ -92,6 +92,15 @@ function App() {
     }
   };
 
+  const fetchQAHistory = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/qa/history`);
+      setQaHistory(response.data.qa_history || []);
+    } catch (error) {
+      console.error('Error fetching Q&A history:', error);
+    }
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
