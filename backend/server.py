@@ -389,6 +389,7 @@ async def get_dashboard_stats():
         processed_documents = await db.documents.count_documents({"processed": True})
         total_insights = await db.insights.count_documents({})
         total_projects = await db.projects.count_documents({})
+        total_qa_sessions = await db.qa_history.count_documents({})
         
         # Get top categories
         pipeline = [
@@ -409,11 +410,149 @@ async def get_dashboard_stats():
             "processed_documents": processed_documents,
             "total_insights": total_insights,
             "total_projects": total_projects,
+            "total_qa_sessions": total_qa_sessions,
             "processing_rate": (processed_documents / total_documents * 100) if total_documents > 0 else 0,
             "top_categories": top_categories
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching dashboard stats: {str(e)}")
+
+@app.post("/api/qa/ask")
+async def ask_question(request: QARequest):
+    """Ask a question and get an AI-powered answer based on uploaded documents and insights"""
+    try:
+        question = request.question.strip()
+        if not question:
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        # Get all processed documents and insights to provide context
+        documents = []
+        insights = []
+        
+        async for doc in db.documents.find({"processed": True}):
+            documents.append({
+                "id": doc["_id"],
+                "filename": doc["filename"],
+                "content_type": doc["content_type"]
+            })
+        
+        async for insight in db.insights.find():
+            insights.append({
+                "id": insight["_id"],
+                "title": insight["title"],
+                "content": insight["content"],
+                "category": insight["category"],
+                "importance_score": insight["importance_score"]
+            })
+        
+        if not documents and not insights:
+            return {
+                "id": str(uuid.uuid4()),
+                "question": question,
+                "answer": "I don't have any documents or insights to reference yet. Please upload some documents first so I can help answer your questions based on your knowledge base.",
+                "referenced_documents": [],
+                "referenced_insights": [],
+                "created_date": datetime.now()
+            }
+        
+        # Prepare context for the AI
+        context_parts = []
+        
+        if insights:
+            context_parts.append("Available insights from your documents:")
+            for insight in insights[:10]:  # Limit to top 10 insights
+                context_parts.append(f"- {insight['title']}: {insight['content'][:200]}...")
+        
+        if documents:
+            context_parts.append(f"\nAvailable documents: {', '.join([doc['filename'] for doc in documents])}")
+        
+        context = "\n".join(context_parts)
+        
+        # Import LLM integration
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        # Initialize Gemini chat for Q&A
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"qa_session_{str(uuid.uuid4())}",
+            system_message="You are a helpful knowledge assistant. Answer questions based on the provided context from the user's document library. If you reference specific insights or information, mention which documents or insights you're drawing from. Be concise but informative."
+        ).with_model("gemini", "gemini-2.0-flash")
+        
+        # Create the prompt with context
+        prompt = f"""
+        Based on the following knowledge from the user's document library, please answer this question:
+        
+        Question: {question}
+        
+        Context:
+        {context}
+        
+        Please provide a helpful answer and mention which insights or documents you're referencing if applicable.
+        """
+        
+        user_message = UserMessage(text=prompt)
+        
+        # Get AI response
+        response = await chat.send_message(user_message)
+        answer = str(response)
+        
+        # Simple logic to identify referenced documents and insights
+        referenced_documents = []
+        referenced_insights = []
+        
+        # Check if any document filenames are mentioned in the answer
+        for doc in documents:
+            if doc["filename"].lower() in answer.lower():
+                referenced_documents.append(doc["id"])
+        
+        # Check if any insight titles are mentioned in the answer
+        for insight in insights:
+            if any(word in answer.lower() for word in insight["title"].lower().split() if len(word) > 3):
+                referenced_insights.append(insight["id"])
+        
+        # Create Q&A record
+        qa_record = {
+            "_id": str(uuid.uuid4()),
+            "question": question,
+            "answer": answer,
+            "referenced_documents": referenced_documents,
+            "referenced_insights": referenced_insights,
+            "created_date": datetime.now()
+        }
+        
+        # Store in database
+        await db.qa_history.insert_one(qa_record)
+        
+        return {
+            "id": qa_record["_id"],
+            "question": question,
+            "answer": answer,
+            "referenced_documents": referenced_documents,
+            "referenced_insights": referenced_insights,
+            "created_date": qa_record["created_date"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
+
+@app.get("/api/qa/history")
+async def get_qa_history():
+    """Get Q&A history"""
+    try:
+        qa_history = []
+        async for qa in db.qa_history.find().sort("created_date", -1).limit(50):
+            qa_history.append({
+                "id": qa["_id"],
+                "question": qa["question"],
+                "answer": qa["answer"],
+                "referenced_documents": qa.get("referenced_documents", []),
+                "referenced_insights": qa.get("referenced_insights", []),
+                "created_date": qa["created_date"]
+            })
+        
+        return {"qa_history": qa_history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching Q&A history: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
