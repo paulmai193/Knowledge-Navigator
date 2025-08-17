@@ -145,6 +145,30 @@ function App() {
     }
   };
 
+  const handleAskQuestion = async (e) => {
+    e.preventDefault();
+    if (!currentQuestion.trim() || isAsking) return;
+
+    setIsAsking(true);
+    const question = currentQuestion.trim();
+    setCurrentQuestion('');
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/qa/ask`, {
+        question: question
+      });
+
+      // Add the new Q&A to the history
+      setQaHistory(prev => [response.data, ...prev]);
+      
+    } catch (error) {
+      console.error('Error asking question:', error);
+      alert('Error processing your question. Please try again.');
+    } finally {
+      setIsAsking(false);
+    }
+  };
+
   const getCategoryColor = (category) => {
     const colors = {
       technical: 'bg-blue-100 text-blue-800 border-blue-200',
