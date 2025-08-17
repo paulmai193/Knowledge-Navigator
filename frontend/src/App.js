@@ -34,6 +34,10 @@ function App() {
     fetchInitialData();
   }, []);
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [qaHistory]);
+
   const fetchInitialData = async () => {
     try {
       await Promise.all([
