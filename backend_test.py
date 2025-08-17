@@ -431,6 +431,9 @@ def main():
         ("Get Documents (Empty)", tester.test_get_documents_empty),
         ("Get Insights (Empty)", tester.test_get_insights_empty),
         ("Get Projects (Empty)", tester.test_get_projects_empty),
+        ("Get Q&A History (Empty)", tester.test_qa_history_empty),
+        ("Ask Question (No Documents)", tester.test_ask_question_no_documents),
+        ("Ask Empty Question", tester.test_ask_question_empty),
         ("Upload Text Document", tester.test_document_upload_txt),
         ("Upload Invalid File Type", tester.test_document_upload_invalid_type),
         ("Get Documents (After Upload)", tester.test_get_documents_after_upload),
@@ -450,10 +453,16 @@ def main():
         processing_complete = tester.wait_for_document_processing()
         
         if processing_complete:
-            # Test insights after processing
+            # Test insights and Q&A after processing
             try:
                 tester.test_get_insights_after_processing()
                 tester.test_dashboard_stats_after_processing()
+                
+                # Q&A tests with processed documents
+                print("\n🤖 Testing Q&A functionality with processed documents...")
+                tester.test_ask_question_with_documents()
+                tester.test_qa_history_after_questions()
+                
             except Exception as e:
                 print(f"❌ Post-processing tests failed: {str(e)}")
     
