@@ -227,7 +227,7 @@ function App() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
               <span>Dashboard</span>
@@ -239,6 +239,10 @@ function App() {
             <TabsTrigger value="insights" className="flex items-center space-x-2">
               <Zap className="w-4 h-4" />
               <span>Insights</span>
+            </TabsTrigger>
+            <TabsTrigger value="qa" className="flex items-center space-x-2">
+              <MessageCircle className="w-4 h-4" />
+              <span>Q&A</span>
             </TabsTrigger>
             <TabsTrigger value="projects" className="flex items-center space-x-2">
               <FolderOpen className="w-4 h-4" />
