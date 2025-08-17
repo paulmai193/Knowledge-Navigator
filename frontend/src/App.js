@@ -355,6 +355,51 @@ function App() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Q&A Section */}
+            {stats.total_qa_sessions > 0 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MessageCircle className="w-5 h-5 text-purple-600" />
+                    <span>Recent Q&A</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Latest questions and AI-powered answers
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {qaHistory.slice(0, 3).map((qa) => (
+                      <div key={qa.id} className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center">
+                              <User className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900">{qa.question}</p>
+                            <div className="flex items-start space-x-3 mt-2">
+                              <div className="flex-shrink-0">
+                                <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+                                  <Bot className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <p className="text-sm text-slate-600 line-clamp-2">{qa.answer}</p>
+                            </div>
+                            <div className="flex items-center mt-2 text-xs text-slate-500">
+                              <Clock className="w-3 h-3 mr-1" />
+                              <span>{new Date(qa.created_date).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Documents Tab */}
