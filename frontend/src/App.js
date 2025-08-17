@@ -44,11 +44,16 @@ function App() {
         fetchDocuments(),
         fetchInsights(),
         fetchProjects(),
-        fetchStats()
+        fetchStats(),
+        fetchQAHistory()
       ]);
     } catch (error) {
       console.error('Error fetching initial data:', error);
     }
+  };
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const fetchDocuments = async () => {
