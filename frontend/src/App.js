@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Upload, FileText, Brain, TrendingUp, Search, Plus, FolderOpen, Zap, BarChart3, Clock, CheckCircle } from 'lucide-react';
+import { Upload, FileText, Brain, TrendingUp, Search, Plus, FolderOpen, Zap, BarChart3, Clock, CheckCircle, MessageCircle, Send, User, Bot } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
