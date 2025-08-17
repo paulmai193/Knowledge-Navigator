@@ -18,6 +18,7 @@ function App() {
   const [documents, setDocuments] = useState([]);
   const [insights, setInsights] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [qaHistory, setQaHistory] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -25,6 +26,9 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
+  const [currentQuestion, setCurrentQuestion] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     fetchInitialData();
