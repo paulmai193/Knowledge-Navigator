@@ -72,6 +72,17 @@ class CreateProjectRequest(BaseModel):
     name: str
     description: str
 
+class QARequest(BaseModel):
+    question: str
+
+class QAResponse(BaseModel):
+    id: str
+    question: str
+    answer: str
+    referenced_documents: List[str]
+    referenced_insights: List[str]
+    created_date: datetime
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "service": "Knowledge Navigator API"}
