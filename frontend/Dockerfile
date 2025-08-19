@@ -5,7 +5,9 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock* package-lock.json* ./
 
-# Install dependencies
+# Clear npm cache and install dependencies
+RUN npm cache clean --force
+RUN rm -rf node_modules package-lock.json yarn.lock
 RUN npm install
 
 # Install serve globally
