@@ -209,15 +209,14 @@ function App() {
                   id="file-upload"
                   disabled={loading}
                 />
-                <label htmlFor="file-upload">
-                  <Button 
-                    className="cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                    disabled={loading}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {loading ? 'Uploading...' : 'Upload Document'}
-                  </Button>
-                </label>
+                <Button 
+                  onClick={() => document.getElementById('file-upload').click()}
+                  className="cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-md flex items-center space-x-2 disabled:opacity-50"
+                  disabled={loading}
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>{loading ? 'Uploading...' : 'Upload Document'}</span>
+                </Button>
               </div>
             </div>
           </div>
