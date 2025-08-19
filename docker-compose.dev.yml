@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: knowledge-navigator-mongo-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: knowledge_navigator
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - knowledge-navigator-dev-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: knowledge-navigator-ollama-dev
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    networks:
+      - knowledge-navigator-dev-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: knowledge-navigator-backend-dev
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - DB_NAME=knowledge_navigator
+      - CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/backend/uploads
+    depends_on:
+      - mongodb
+      - ollama
+    networks:
+      - knowledge-navigator-dev-network
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: knowledge-navigator-frontend-dev
+    restart: unless-stopped
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - knowledge-navigator-dev-network
+
+volumes:
+  mongodb_dev_data:
+  ollama_dev_data:
+
+networks:
+  knowledge-navigator-dev-network:
+    driver: bridge

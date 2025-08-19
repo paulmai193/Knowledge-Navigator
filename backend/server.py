@@ -29,7 +29,8 @@ app.add_middleware(
 
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-EMERGENT_LLM_KEY = os.getenv("EMERGENT_LLM_KEY")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.knowledge_navigator
@@ -136,65 +137,63 @@ async def upload_document(file: UploadFile = File(...)):
 async def process_document(document_id: str, file_path: str, content_type: str):
     """Process document with LLM to extract insights"""
     try:
-        # Import LLM integration
-        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+        import aiohttp
         
-        # Initialize Gemini chat
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"doc_analysis_{document_id}",
-            system_message="You are an expert knowledge analyst. Analyze documents to extract key insights, project learnings, best practices, and actionable recommendations for future projects."
-        ).with_model("gemini", "gemini-2.0-flash")
+        # Read document content
+        document_content = ""
+        if content_type == "text/plain":
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                document_content = await f.read()
+        else:
+            # For PDF/DOCX, use basic text extraction or skip for now
+            document_content = "Document content extraction not implemented for this file type."
         
-        # Create file attachment
-        file_attachment = FileContentWithMimeType(
-            file_path=file_path,
-            mime_type=content_type
-        )
+        # Analyze document with Ollama
+        analysis_prompt = f"""
+        You are an expert knowledge analyst. Analyze the following document and extract key insights, project learnings, best practices, and actionable recommendations.
         
-        # Analyze document
-        analysis_prompt = """
-        Please analyze this document and extract:
-        1. Key insights and learnings
-        2. Best practices mentioned
-        3. Technical solutions and approaches
-        4. Project challenges and how they were resolved
-        5. Recommendations for future similar projects
+        Document content:
+        {document_content[:4000]}  # Limit content length
         
-        Format your response as JSON with the following structure:
-        {
+        Please respond with a JSON object containing:
+        {{
             "insights": [
-                {
+                {{
                     "title": "insight title",
                     "content": "detailed content",
                     "category": "technical|process|business|general",
                     "importance_score": 0.8
-                }
+                }}
             ],
             "recommendations": [
                 "recommendation 1",
                 "recommendation 2"
             ],
             "summary": "Overall document summary"
-        }
+        }}
         """
         
-        user_message = UserMessage(
-            text=analysis_prompt,
-            file_contents=[file_attachment]
-        )
-        
-        response = await chat.send_message(user_message)
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": OLLAMA_MODEL,
+                "prompt": analysis_prompt,
+                "stream": False
+            }
+            
+            async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+                if resp.status != 200:
+                    raise Exception(f"Ollama API error: {resp.status}")
+                result = await resp.json()
+                response = result.get("response", "")
         
         # Parse response
         try:
             # Try to extract JSON from response
-            response_text = str(response)
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
+            json_start = response.find('{')
+            json_end = response.rfind('}') + 1
             
             if json_start != -1 and json_end > json_start:
-                json_str = response_text[json_start:json_end]
+                json_str = response[json_start:json_end]
                 analysis_result = json.loads(json_str)
             else:
                 # Fallback: create structured data from text response
@@ -202,7 +201,7 @@ async def process_document(document_id: str, file_path: str, content_type: str):
                     "insights": [
                         {
                             "title": "AI Analysis Results",
-                            "content": response_text,
+                            "content": response,
                             "category": "general",
                             "importance_score": 0.7
                         }
@@ -216,7 +215,7 @@ async def process_document(document_id: str, file_path: str, content_type: str):
                 "insights": [
                     {
                         "title": "Document Analysis",
-                        "content": str(response),
+                        "content": response,
                         "category": "general",
                         "importance_score": 0.7
                     }
@@ -468,19 +467,12 @@ async def ask_question(request: QARequest):
         
         context = "\n".join(context_parts)
         
-        # Import LLM integration
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
-        # Initialize Gemini chat for Q&A
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"qa_session_{str(uuid.uuid4())}",
-            system_message="You are a helpful knowledge assistant. Answer questions based on the provided context from the user's document library. If you reference specific insights or information, mention which documents or insights you're drawing from. Be concise but informative."
-        ).with_model("gemini", "gemini-2.0-flash")
+        # Use Ollama for Q&A
+        import aiohttp
         
         # Create the prompt with context
         prompt = f"""
-        Based on the following knowledge from the user's document library, please answer this question:
+        You are a helpful knowledge assistant. Answer questions based on the provided context from the user's document library. If you reference specific insights or information, mention which documents or insights you're drawing from. Be concise but informative.
         
         Question: {question}
         
@@ -490,11 +482,19 @@ async def ask_question(request: QARequest):
         Please provide a helpful answer and mention which insights or documents you're referencing if applicable.
         """
         
-        user_message = UserMessage(text=prompt)
-        
-        # Get AI response
-        response = await chat.send_message(user_message)
-        answer = str(response)
+        # Get AI response from Ollama
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False
+            }
+            
+            async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+                if resp.status != 200:
+                    raise Exception(f"Ollama API error: {resp.status}")
+                result = await resp.json()
+                answer = result.get("response", "Sorry, I couldn't generate a response.")
         
         # Simple logic to identify referenced documents and insights
         referenced_documents = []

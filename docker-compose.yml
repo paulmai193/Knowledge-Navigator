@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: knowledge-navigator-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: knowledge_navigator
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - knowledge-navigator-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: knowledge-navigator-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - knowledge-navigator-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: knowledge-navigator-backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL}
+      - DB_NAME=knowledge_navigator
+      - CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+    depends_on:
+      - mongodb
+      - ollama
+    networks:
+      - knowledge-navigator-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: knowledge-navigator-frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - knowledge-navigator-network
+
+volumes:
+  mongodb_data:
+  ollama_data:
+
+networks:
+  knowledge-navigator-network:
+    driver: bridge
