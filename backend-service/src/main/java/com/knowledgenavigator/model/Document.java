@@ -15,6 +15,7 @@ public class Document {
     private LocalDateTime uploadDate;
     private boolean processed;
     private long fileSize;
+    private ProcessingStatus processingStatus;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -39,4 +40,7 @@ public class Document {
 
     public long getFileSize() { return fileSize; }
     public void setFileSize(long fileSize) { this.fileSize = fileSize; }
+
+    public ProcessingStatus getProcessingStatus() { return processingStatus; }
+    public void setProcessingStatus(ProcessingStatus processingStatus) { this.processingStatus = processingStatus; }
 }

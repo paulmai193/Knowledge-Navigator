@@ -99,12 +99,20 @@ async def create_embedding(request: EmbeddingRequest):
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
     """Extract text from uploaded files"""
-    if content_type == "text/plain":
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    else:
-        # Basic implementation - extend for PDF/DOCX
-        return "Content extraction not implemented for this file type"
+    try:
+        if content_type == "text/plain":
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        elif content_type == "application/pdf":
+            # Placeholder for PDF extraction
+            return "PDF content extraction - implement with PyPDF2 or similar"
+        elif content_type in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
+            # Placeholder for DOCX extraction
+            return "DOCX content extraction - implement with python-docx"
+        else:
+            return f"Content extraction not implemented for: {content_type}"
+    except Exception as e:
+        return f"Error extracting content: {str(e)}"
 
 async def generate_insights(content: str) -> List[Dict[str, Any]]:
     """Generate insights using LLM"""
@@ -206,9 +214,24 @@ async def generate_answer(question: str, context: str) -> str:
             return result.get("response", "Unable to generate answer")
 
 async def generate_text_embedding(text: str) -> List[float]:
-    """Generate text embeddings"""
-    # Placeholder - implement with actual embedding model
-    return [0.0] * 384
+    """Generate text embeddings using Ollama"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": "nomic-embed-text",  # Use embedding model
+                "prompt": text
+            }
+            
+            async with session.post(f"{OLLAMA_URL}/api/embeddings", json=payload) as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    return result.get("embedding", [0.0] * 384)
+                else:
+                    # Fallback to dummy embedding
+                    return [0.0] * 384
+    except Exception as e:
+        # Return dummy embedding on error
+        return [0.0] * 384
 
 @app.get("/health")
 async def health_check():
