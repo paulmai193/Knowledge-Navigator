@@ -35,6 +35,8 @@ class ProcessRequest(BaseModel):
 
 class QARequest(BaseModel):
     question: str
+    context: str = ""
+    user_id: str = "anonymous"
 
 class EmbeddingRequest(BaseModel):
     text: str
@@ -66,20 +68,21 @@ async def process_document(request: ProcessRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/qa")
-async def answer_question(request: QARequest):
-    """Answer questions using AI"""
+async def answer_question(request: dict):
+    """Answer questions using AI with context"""
     try:
-        # Get relevant context from embeddings
-        context = await get_relevant_context(request.question)
+        question = request.get("question")
+        context = request.get("context", "")
         
-        # Generate answer using LLM
-        answer = await generate_answer(request.question, context)
+        # Generate answer using LLM with provided context
+        answer = await generate_answer_with_context(question, context)
         
-        # Store Q&A record
+        # Log the Q&A interaction
         qa_record = {
             "_id": str(uuid.uuid4()),
-            "question": request.question,
+            "question": question,
             "answer": answer,
+            "context_length": len(context),
             "created_date": datetime.now()
         }
         await db.qa_history.insert_one(qa_record)
@@ -190,23 +193,33 @@ async def get_relevant_context(question: str) -> str:
     
     return "\n".join(insights)
 
-async def generate_answer(question: str, context: str) -> str:
-    """Generate answer using LLM"""
+async def generate_answer_with_context(question: str, context: str) -> str:
+    """Generate answer using LLM with specific context"""
     prompt = f"""
-    Answer this question based on the provided context:
+    You are a helpful assistant that answers questions based on provided context.
     
     Question: {question}
     
     Context: {context}
     
-    Provide a helpful answer based on the context.
+    Instructions:
+    - Answer the question based only on the provided context
+    - If the context doesn't contain relevant information, say so
+    - Be concise and accurate
+    - Cite specific parts of the context when possible
+    
+    Answer:
     """
     
     async with aiohttp.ClientSession() as session:
         payload = {
             "model": OLLAMA_MODEL,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9
+            }
         }
         
         async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:

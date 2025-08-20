@@ -1,9 +1,9 @@
 package com.knowledgenavigator.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.knowledgenavigator.service.QAService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.reactive.function.client.WebClient;
 import java.util.Map;
 
 @RestController
@@ -11,25 +11,19 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class QAController {
 
-    private final WebClient webClient;
-
-    @Value("${ai.service.url}")
-    private String aiServiceUrl;
-
-    public QAController(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.build();
-    }
+    @Autowired
+    private QAService qaService;
 
     @PostMapping("/ask")
     public ResponseEntity<Map<String, Object>> askQuestion(@RequestBody Map<String, String> request) {
-        Map<String, Object> response = webClient
-            .post()
-            .uri(aiServiceUrl + "/qa")
-            .bodyValue(request)
-            .retrieve()
-            .bodyToMono(Map.class)
-            .block();
-        
-        return ResponseEntity.ok(response);
+        String userId = request.getOrDefault("user_id", "anonymous");
+        String question = request.get("question");
+
+        if (question == null || question.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Question is required"));
+        }
+
+        Map<String, Object> result = qaService.processQuestion(userId, question);
+        return ResponseEntity.ok(result);
     }
 }

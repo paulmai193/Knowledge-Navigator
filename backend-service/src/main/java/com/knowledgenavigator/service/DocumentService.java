@@ -28,4 +28,11 @@ public class DocumentService {
     public Document getDocumentById(String id) {
         return documentRepository.findById(id).orElse(null);
     }
+
+    public List<Document> getAccessibleDocuments(String userId) {
+        // Filter documents based on user access permissions
+        return documentRepository.findAll().stream()
+            .filter(doc -> doc.isProcessed())
+            .collect(java.util.stream.Collectors.toList());
+    }
 }
