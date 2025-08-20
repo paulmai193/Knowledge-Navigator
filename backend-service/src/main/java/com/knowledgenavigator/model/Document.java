@@ -43,4 +43,9 @@ public class Document {
 
     public ProcessingStatus getProcessingStatus() { return processingStatus; }
     public void setProcessingStatus(ProcessingStatus processingStatus) { this.processingStatus = processingStatus; }
+
+    // Additional getters for frontend compatibility
+    public String getContent_type() { return contentType; }
+    public String getUpload_date() { return uploadDate != null ? uploadDate.toString() : null; }
+    public int getInsights_count() { return processed ? 2 : 0; } // Mock: 2 insights per processed document
 }
