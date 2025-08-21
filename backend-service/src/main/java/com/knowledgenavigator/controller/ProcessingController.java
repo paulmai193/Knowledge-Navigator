@@ -1,6 +1,6 @@
 package com.knowledgenavigator.controller;
 
-import com.knowledgenavigator.model.Document;
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.model.DocumentChunk;
 import com.knowledgenavigator.repository.DocumentRepository;
 import com.knowledgenavigator.service.KnowledgeBaseService;
@@ -23,7 +23,7 @@ public class ProcessingController {
 
     @GetMapping("/status/{documentId}")
     public ResponseEntity<Map<String, Object>> getProcessingStatus(@PathVariable String documentId) {
-        Document document = documentRepository.findById(documentId).orElse(null);
+        DocumentEntity document = documentRepository.findById(documentId).orElse(null);
         if (document == null) {
             return ResponseEntity.notFound().build();
         }

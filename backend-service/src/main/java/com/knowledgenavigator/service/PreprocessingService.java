@@ -1,6 +1,6 @@
 package com.knowledgenavigator.service;
 
-import com.knowledgenavigator.model.Document;
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.model.DocumentChunk;
 import com.knowledgenavigator.model.ProcessingStatus;
 import com.knowledgenavigator.repository.DocumentRepository;
@@ -39,7 +39,7 @@ public class PreprocessingService {
 
     public void processDocument(String documentId) {
         try {
-            Document document = documentRepository.findById(documentId).orElse(null);
+            DocumentEntity document = documentRepository.findById(documentId).orElse(null);
             if (document == null) return;
 
             // Update status to preprocessing
@@ -98,7 +98,7 @@ public class PreprocessingService {
 
         } catch (Exception e) {
             // Update status to failed
-            Document document = documentRepository.findById(documentId).orElse(null);
+            DocumentEntity document = documentRepository.findById(documentId).orElse(null);
             if (document != null) {
                 document.setProcessingStatus(ProcessingStatus.FAILED);
                 documentRepository.save(document);
@@ -141,7 +141,7 @@ public class PreprocessingService {
         return chunks;
     }
 
-    private Map<String, Object> extractMetadata(Document document, String content) {
+    private Map<String, Object> extractMetadata(DocumentEntity document, String content) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("source", document.getFilename());
         metadata.put("contentType", document.getContentType());

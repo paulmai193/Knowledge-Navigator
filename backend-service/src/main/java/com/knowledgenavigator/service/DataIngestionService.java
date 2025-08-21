@@ -1,6 +1,6 @@
 package com.knowledgenavigator.service;
 
-import com.knowledgenavigator.model.Document;
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.model.ProcessingStatus;
 import com.knowledgenavigator.repository.DocumentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +40,7 @@ public class DataIngestionService {
             Path filePath = uploadPath.resolve(storedFilename);
             Files.copy(file.getInputStream(), filePath);
 
-            Document document = new Document();
+            DocumentEntity document = new DocumentEntity();
             document.setId(fileId);
             document.setFilename(originalFilename);
             document.setStoredFilename(storedFilename);

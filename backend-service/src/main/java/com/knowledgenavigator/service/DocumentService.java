@@ -1,6 +1,6 @@
 package com.knowledgenavigator.service;
 
-import com.knowledgenavigator.model.Document;
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.repository.DocumentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,15 +21,15 @@ public class DocumentService {
         return dataIngestionService.ingestDocument(file);
     }
 
-    public List<Document> getAllDocuments() {
+    public List<DocumentEntity> getAllDocuments() {
         return documentRepository.findAll();
     }
 
-    public Document getDocumentById(String id) {
+    public DocumentEntity getDocumentById(String id) {
         return documentRepository.findById(id).orElse(null);
     }
 
-    public List<Document> getAccessibleDocuments(String userId) {
+    public List<DocumentEntity> getAccessibleDocuments(String userId) {
         // Filter documents based on user access permissions
         return documentRepository.findAll().stream()
             .filter(doc -> doc.isProcessed())

@@ -5,7 +5,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 
 @Document(collection = "documents")
-public class Document {
+public class DocumentEntity {
     @Id
     private String id;
     private String filename;

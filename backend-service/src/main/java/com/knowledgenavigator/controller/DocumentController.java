@@ -1,6 +1,6 @@
 package com.knowledgenavigator.controller;
 
-import com.knowledgenavigator.model.Document;
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +23,12 @@ public class DocumentController {
     }
 
     @GetMapping
-    public ResponseEntity<Map<String, List<Document>>> getDocuments() {
+    public ResponseEntity<Map<String, List<DocumentEntity>>> getDocuments() {
         return ResponseEntity.ok(Map.of("documents", documentService.getAllDocuments()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Document> getDocument(@PathVariable String id) {
+    public ResponseEntity<DocumentEntity> getDocument(@PathVariable String id) {
         return ResponseEntity.ok(documentService.getDocumentById(id));
     }
 }
