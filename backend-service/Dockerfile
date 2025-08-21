@@ -15,7 +15,7 @@ COPY build.gradle .
 COPY src src
 
 # Build the application
-RUN gradle build --no-daemon
+RUN gradle clean build --no-daemon
 
 # Runtime stage
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17
