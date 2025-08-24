@@ -48,9 +48,20 @@ dump.rdb
 
 # Python
 __pycache__/
-*pyc*
+*.py[cod]
+*$py.class
+*.so
 venv/
 .venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+.coverage
+htmlcov/
 
 # Development tools
 chainlit.md
@@ -82,10 +93,60 @@ android-sdk/
 # Gradle
 .gradle/
 build/
+bin/
+out/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+*.jar
+*.war
+*.ear
+!gradle-wrapper.jar
+
+# Java/Spring Boot
+target/
+*.class
+*.log
+*.ctxt
+.mtj.tmp/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+
+# IDE
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.iml
+*.ipr
+*.iws
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Docker
+.dockerignore
+Dockerfile.tmp
 
 # Project specific
 .emergent/
-backend/uploads/ 
+backend/uploads/
+ai-service/uploads/
+*.sqlite
+*.db 
