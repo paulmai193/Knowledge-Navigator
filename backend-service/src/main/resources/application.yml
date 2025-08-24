@@ -5,19 +5,24 @@ spring:
   data:
     mongodb:
       uri: ${MONGO_URL:mongodb://localhost:27017/knowledge_navigator}
-  servlet:
-    multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
-
-app:
-  upload:
-    dir: ${UPLOAD_DIR:/app/uploads}
 
 ai:
   service:
     url: ${AI_SERVICE_URL:http://localhost:8002}
 
-logging:
-  level:
-    com.knowledgenavigator: DEBUG
+qa:
+  max:
+    chunks: 10
+    context:
+      length: 4000
+  chunks:
+    per:
+      document: 3
+
+preprocessing:
+  chunk:
+    size: 1000
+
+app:
+  upload:
+    dir: ${UPLOAD_DIR:/app/uploads}

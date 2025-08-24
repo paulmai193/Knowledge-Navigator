@@ -33,6 +33,15 @@ public class QAService {
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
 
+    @Value("${qa.max.chunks:10}")
+    private int maxChunks;
+
+    @Value("${qa.max.context.length:4000}")
+    private int maxContextLength;
+
+    @Value("${qa.chunks.per.document:3}")
+    private int chunksPerDocument;
+
     public Map<String, Object> processQuestion(String userId, String question) {
         try {
             // Check user permissions
@@ -130,13 +139,37 @@ public class QAService {
     }
 
     private List<DocumentChunk> getAccessibleDocuments(String userId, List<String> documentIds) {
-        List<DocumentChunk> chunks = new ArrayList<>();
+        List<DocumentChunk> selectedChunks = new ArrayList<>();
+        int totalLength = 0;
+        
         for (String docId : documentIds) {
-            if (securityService.checkDocumentAccess(userId, docId)) {
-                chunks.addAll(chunkRepository.findByDocumentId(docId));
+            if (!securityService.checkDocumentAccess(userId, docId)) {
+                continue;
+            }
+            
+            // Get limited chunks per document at database level
+            List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
+            
+            for (DocumentChunk chunk : docChunks) {
+                if (selectedChunks.size() >= maxChunks) {
+                    break;
+                }
+                
+                int chunkLength = chunk.getContent().length();
+                if (totalLength + chunkLength > maxContextLength) {
+                    break;
+                }
+                
+                selectedChunks.add(chunk);
+                totalLength += chunkLength;
+            }
+            
+            if (selectedChunks.size() >= maxChunks) {
+                break;
             }
         }
-        return chunks.stream().limit(5).collect(Collectors.toList());
+        
+        return selectedChunks;
     }
 
     private String summarizeAnswer(String query, List<DocumentChunk> chunks) {
