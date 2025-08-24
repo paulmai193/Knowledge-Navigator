@@ -29,10 +29,13 @@ public class DocumentService {
         return documentRepository.findById(id).orElse(null);
     }
 
-    public List<DocumentEntity> getAccessibleDocuments(String userId) {
-        // Filter documents based on user access permissions
-        return documentRepository.findAll().stream()
+    public List<DocumentEntity> getAccessibleDocuments(String username) {
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(username);
+        return documentRepository.findAllById(accessibleDocIds).stream()
             .filter(doc -> doc.isProcessed())
             .collect(java.util.stream.Collectors.toList());
     }
+
+    @Autowired
+    private AuthorizationService authorizationService;
 }
