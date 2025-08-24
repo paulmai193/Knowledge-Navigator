@@ -2,12 +2,29 @@ version: '3.8'
 
 services:
   mongodb:
-    image: public.ecr.aws/docker/library/mongo:7.0
+    image: mongo:7.0
     container_name: knowledge-navigator-mongodb
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - knowledge-navigator-network
+
+  weaviate:
+    image: semitechnologies/weaviate:1.22.4
+    container_name: knowledge-navigator-weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      ENABLE_MODULES: ''
+      CLUSTER_HOSTNAME: 'node1'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
     networks:
       - knowledge-navigator-network
 
@@ -29,14 +46,15 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - MONGO_URL=mongodb://mongodb:27017/knowledge_navigator
-      - AI_SERVICE_URL=http://ai-service:8002
-      - UPLOAD_DIR=/app/uploads
+      MONGO_URL: mongodb://mongodb:27017/knowledge_navigator
+      AI_SERVICE_URL: http://ai-service:8002
+      WEAVIATE_URL: http://weaviate:8080
     volumes:
-      - uploads_data:/app/uploads
+      - ./uploads:/app/uploads
     depends_on:
       - mongodb
-      - ai-service
+      - weaviate
+      - ollama
     networks:
       - knowledge-navigator-network
 
@@ -48,9 +66,9 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - MONGO_URL=mongodb://mongodb:27017/knowledge_navigator
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama3.2
+      MONGO_URL: mongodb://mongodb:27017/knowledge_navigator
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
     depends_on:
       - mongodb
       - ollama
@@ -65,7 +83,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_BACKEND_URL=http://localhost:8001
+      REACT_APP_BACKEND_URL: http://localhost:8001
     depends_on:
       - backend-service
     networks:
@@ -73,8 +91,8 @@ services:
 
 volumes:
   mongodb_data:
+  weaviate_data:
   ollama_data:
-  uploads_data:
 
 networks:
   knowledge-navigator-network:

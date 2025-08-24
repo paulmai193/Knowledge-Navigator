@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -26,6 +28,8 @@ import org.apache.poi.hwpf.extractor.WordExtractor;
 @Service
 public class PreprocessingService {
 
+    private static final Logger logger = LoggerFactory.getLogger(PreprocessingService.class);
+
     @Autowired
     private DocumentRepository documentRepository;
 
@@ -38,6 +42,9 @@ public class PreprocessingService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
+    @Autowired
+    private VectorSearchService vectorSearchService;
+
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
 
@@ -45,9 +52,14 @@ public class PreprocessingService {
     private int chunkSize;
 
     public void processDocument(String documentId) {
+        logger.info("Starting document processing for ID: {}", documentId);
         try {
             DocumentEntity document = documentRepository.findById(documentId).orElse(null);
-            if (document == null) return;
+            if (document == null) {
+                logger.warn("Document not found: {}", documentId);
+                return;
+            }
+            logger.debug("Processing document: {} ({})", document.getFilename(), document.getContentType());
 
             // Update status to preprocessing
             document.setProcessingStatus(ProcessingStatus.PREPROCESSING);
@@ -63,9 +75,11 @@ public class PreprocessingService {
 
             // Split into chunks
             List<String> chunks = splitTextToChunks(cleanedContent);
+            logger.info("Split document {} into {} chunks", documentId, chunks.size());
 
             // Extract metadata
             Map<String, Object> metadata = extractMetadata(document, cleanedContent);
+            logger.debug("Extracted metadata: word count = {}", metadata.get("wordCount"));
 
             // Update status to embedding
             document.setProcessingStatus(ProcessingStatus.EMBEDDING);
@@ -95,6 +109,9 @@ public class PreprocessingService {
             document.setProcessingStatus(ProcessingStatus.INDEXING);
             documentRepository.save(document);
 
+            // Store embeddings in Weaviate
+            storeEmbeddingsInWeaviate(documentChunks);
+
             // Store in knowledge base and create search index
             knowledgeBaseService.indexDocument(documentId, documentChunks);
 
@@ -102,8 +119,11 @@ public class PreprocessingService {
             document.setProcessingStatus(ProcessingStatus.COMPLETED);
             document.setProcessed(true);
             documentRepository.save(document);
+            
+            logger.info("Successfully completed processing document: {}", documentId);
 
         } catch (Exception e) {
+            logger.error("Error processing document {}: {}", documentId, e.getMessage(), e);
             // Update status to failed
             DocumentEntity document = documentRepository.findById(documentId).orElse(null);
             if (document != null) {
@@ -206,6 +226,17 @@ public class PreprocessingService {
         } catch (Exception e) {
             // Return dummy embedding on failure
             return Collections.nCopies(384, 0.0);
+        }
+    }
+
+    private void storeEmbeddingsInWeaviate(List<DocumentChunk> chunks) {
+        for (DocumentChunk chunk : chunks) {
+            vectorSearchService.storeEmbedding(
+                chunk.getId(),
+                chunk.getDocumentId(),
+                chunk.getContent(),
+                chunk.getEmbedding()
+            );
         }
     }
 }

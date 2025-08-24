@@ -8,12 +8,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class QAService {
+
+    private static final Logger logger = LoggerFactory.getLogger(QAService.class);
 
     @Autowired
     private QASessionRepository qaSessionRepository;
@@ -43,9 +47,12 @@ public class QAService {
     private int chunksPerDocument;
 
     public Map<String, Object> processQuestion(String userId, String question) {
+        logger.info("Processing Q&A question for user: {}", userId);
+        logger.debug("Question: {}", question);
         try {
             // Check user permissions
             if (!securityService.checkUserPermission(userId)) {
+                logger.warn("Permission denied for user: {}", userId);
                 return Map.of("error", "Insufficient permissions", "status", "PERMISSION_DENIED");
             }
 
@@ -68,10 +75,13 @@ public class QAService {
             session.setQueryEmbedding(queryEmbedding);
 
             // Find related documents using vector search
+            logger.debug("Searching for related documents with embedding size: {}", queryEmbedding.size());
             List<String> foundDocuments = vectorSearchService.findRelatedDocuments(queryEmbedding);
             session.setFoundDocuments(foundDocuments);
+            logger.info("Found {} related documents", foundDocuments.size());
 
             if (foundDocuments.isEmpty()) {
+                logger.warn("No documents found for query: {}", processedQuery);
                 session.setStatus("NO_DOCUMENTS_FOUND");
                 session.setAnswer("No suitable information found");
                 qaSessionRepository.save(session);
@@ -80,8 +90,10 @@ public class QAService {
 
             // Get document metadata and check access permissions
             List<DocumentChunk> accessibleChunks = getAccessibleDocuments(userId, foundDocuments);
+            logger.info("User {} has access to {} chunks from {} documents", userId, accessibleChunks.size(), foundDocuments.size());
             
             if (accessibleChunks.isEmpty()) {
+                logger.warn("Access denied for user {} to all relevant documents", userId);
                 session.setStatus("ACCESS_DENIED");
                 session.setAnswer("Access denied to relevant documents");
                 qaSessionRepository.save(session);
@@ -96,6 +108,8 @@ public class QAService {
             session.setSources(sources);
             session.setStatus("COMPLETED");
             qaSessionRepository.save(session);
+            
+            logger.info("Successfully completed Q&A session: {} with {} sources", session.getId(), sources.size());
 
             return Map.of(
                 "answer", answer,
@@ -105,6 +119,7 @@ public class QAService {
             );
 
         } catch (Exception e) {
+            logger.error("Error processing Q&A question for user {}: {}", userId, e.getMessage(), e);
             return Map.of("error", "Error processing question: " + e.getMessage(), "status", "ERROR");
         }
     }

@@ -9,6 +9,14 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 import uuid
 from typing import List, Dict, Any
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI/NLP Service")
 
@@ -44,6 +52,7 @@ class EmbeddingRequest(BaseModel):
 @app.post("/process")
 async def process_document(request: ProcessRequest):
     """Process document with AI analysis"""
+    logger.info(f"Processing document: {request.document_id}, type: {request.content_type}")
     try:
         # Extract text content
         content = await extract_text_content(request.file_path, request.content_type)
@@ -63,16 +72,20 @@ async def process_document(request: ProcessRequest):
             {"$set": {"processed": True}}
         )
         
+        logger.info(f"Successfully processed document {request.document_id} with {len(insights)} insights")
         return {"status": "success", "insights_count": len(insights)}
     except Exception as e:
+        logger.error(f"Error processing document {request.document_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/qa")
 async def answer_question(request: dict):
     """Answer questions using AI with context"""
+    logger.info(f"Processing Q&A request with context length: {len(request.get('context', ''))}")
     try:
         question = request.get("question")
         context = request.get("context", "")
+        logger.debug(f"Question: {question[:100]}...")
         
         # Generate answer using LLM with provided context
         answer = await generate_answer_with_context(question, context)
@@ -87,17 +100,22 @@ async def answer_question(request: dict):
         }
         await db.qa_history.insert_one(qa_record)
         
+        logger.info(f"Successfully generated answer for Q&A session: {qa_record['_id']}")
         return {"answer": answer, "qa_id": qa_record["_id"]}
     except Exception as e:
+        logger.error(f"Error in Q&A processing: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/embedding")
 async def create_embedding(request: EmbeddingRequest):
     """Generate text embeddings"""
+    logger.debug(f"Generating embedding for text length: {len(request.text)}")
     try:
         embedding = await generate_text_embedding(request.text)
+        logger.debug(f"Generated embedding with dimension: {len(embedding)}")
         return {"embedding": embedding}
     except Exception as e:
+        logger.error(f"Error generating embedding: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
@@ -228,6 +246,7 @@ async def generate_answer_with_context(question: str, context: str) -> str:
 
 async def generate_text_embedding(text: str) -> List[float]:
     """Generate text embeddings using Ollama"""
+    logger.debug(f"Generating embedding for text length: {len(text)}")
     try:
         async with aiohttp.ClientSession() as session:
             payload = {
@@ -235,15 +254,19 @@ async def generate_text_embedding(text: str) -> List[float]:
                 "prompt": text
             }
             
+            logger.debug(f"Calling Ollama embeddings API: {OLLAMA_URL}/api/embeddings")
             async with session.post(f"{OLLAMA_URL}/api/embeddings", json=payload) as resp:
+                logger.debug(f"Ollama embeddings response status: {resp.status}")
                 if resp.status == 200:
                     result = await resp.json()
-                    return result.get("embedding", [0.0] * 384)
+                    embedding = result.get("embedding", [0.0] * 384)
+                    logger.debug(f"Generated embedding with dimension: {len(embedding)}")
+                    return embedding
                 else:
-                    # Fallback to dummy embedding
+                    logger.warning(f"Ollama embeddings failed with status {resp.status}, using dummy embedding")
                     return [0.0] * 384
     except Exception as e:
-        # Return dummy embedding on error
+        logger.error(f"Error generating embedding: {str(e)}")
         return [0.0] * 384
 
 @app.get("/health")

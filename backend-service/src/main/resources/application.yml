@@ -26,3 +26,10 @@ preprocessing:
 app:
   upload:
     dir: ${UPLOAD_DIR:/app/uploads}
+
+logging:
+  level:
+    com.knowledgenavigator: DEBUG
+    io.weaviate: DEBUG
+    org.springframework.web: DEBUG
+    root: INFO
