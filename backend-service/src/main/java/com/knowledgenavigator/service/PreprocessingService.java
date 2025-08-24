@@ -10,11 +10,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import java.io.IOException;
+import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.extractor.WordExtractor;
 
 @Service
 public class PreprocessingService {
@@ -108,11 +115,45 @@ public class PreprocessingService {
     }
 
     private String extractTextContent(String filePath, String contentType) throws IOException {
-        if ("text/plain".equals(contentType)) {
-            return Files.readString(Paths.get(filePath));
+        try {
+            switch (contentType) {
+                case "text/plain":
+                    return Files.readString(Paths.get(filePath));
+                case "application/pdf":
+                    return extractPdfText(filePath);
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    return extractDocxText(filePath);
+                case "application/msword":
+                    return extractDocText(filePath);
+                default:
+                    return "Content extraction not supported for: " + contentType;
+            }
+        } catch (Exception e) {
+            throw new IOException("Error extracting text from file: " + e.getMessage(), e);
         }
-        // Extend for PDF/DOCX extraction
-        return "Content extraction not implemented for: " + contentType;
+    }
+
+    private String extractPdfText(String filePath) throws IOException {
+        try (PDDocument document = PDDocument.load(new FileInputStream(filePath))) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            return stripper.getText(document);
+        }
+    }
+
+    private String extractDocxText(String filePath) throws IOException {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             XWPFDocument document = new XWPFDocument(fis);
+             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
+            return extractor.getText();
+        }
+    }
+
+    private String extractDocText(String filePath) throws IOException {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             HWPFDocument document = new HWPFDocument(fis);
+             WordExtractor extractor = new WordExtractor(document)) {
+            return extractor.getText();
+        }
     }
 
     private String cleanText(String content) {
