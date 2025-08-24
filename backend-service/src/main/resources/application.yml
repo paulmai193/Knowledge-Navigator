@@ -1,0 +1,35 @@
+server:
+  port: 8001
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGO_URL:mongodb://localhost:27017/knowledge_navigator}
+
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:8002}
+
+qa:
+  max:
+    chunks: 10
+    context:
+      length: 4000
+  chunks:
+    per:
+      document: 3
+
+preprocessing:
+  chunk:
+    size: 1000
+
+app:
+  upload:
+    dir: ${UPLOAD_DIR:/app/uploads}
+
+logging:
+  level:
+    com.knowledgenavigator: DEBUG
+    io.weaviate: DEBUG
+    org.springframework.web: DEBUG
+    root: INFO

@@ -4,5 +4,8 @@ echo "Setting up Ollama with required models..."
 # Pull the default model
 docker exec knowledge-navigator-ollama ollama pull llama3.2
 
+# Pull the embedding model
+docker exec knowledge-navigator-ollama ollama pull nomic-embed-text
+
 echo "Ollama setup complete!"
 echo "Available at: http://localhost:11434"

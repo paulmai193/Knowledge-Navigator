@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Upload, FileText, Brain, TrendingUp, Search, Plus, FolderOpen, Zap, BarChart3, Clock, CheckCircle, MessageCircle, Send, User, Bot } from 'lucide-react';
+import './utils/auth';
+import { Upload, FileText, Brain, TrendingUp, Search, Plus, FolderOpen, Zap, BarChart3, Clock, CheckCircle, MessageCircle, Send, User, Bot, LogOut } from 'lucide-react';
+import AuthWrapper from './components/AuthWrapper';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -14,7 +16,7 @@ import './App.css';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
-function App() {
+function App({ user, onLogout }) {
   const [documents, setDocuments] = useState([]);
   const [insights, setInsights] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -200,6 +202,16 @@ function App() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <User className="w-4 h-4" />
+                <span>{user?.username}</span>
+                <button
+                  onClick={onLogout}
+                  className="ml-2 p-1 text-slate-400 hover:text-slate-600"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
               <div className="relative">
                 <input
                   type="file"
@@ -723,4 +735,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithAuth() {
+  return (
+    <AuthWrapper>
+      <App />
+    </AuthWrapper>
+  );
+}
+
+export default AppWithAuth;
