@@ -634,7 +634,7 @@ function App({ user, onLogout }) {
                 <h2 className="text-2xl font-bold text-slate-900">Projects</h2>
                 <p className="text-slate-600">Organize your knowledge by project</p>
               </div>
-              {user?.role === 'ADMIN' && (
+              {(user?.role === 'ADMIN' || user?.role === 'PROJECT_OWNER') && (
                 <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
@@ -729,7 +729,7 @@ function App({ user, onLogout }) {
                     <FolderOpen className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
                     <p className="text-slate-600 mb-4">Create your first project to organize knowledge</p>
-                    {user?.role === 'ADMIN' && (
+                    {(user?.role === 'ADMIN' || user?.role === 'PROJECT_OWNER') && (
                       <Button 
                         onClick={() => setIsCreateProjectOpen(true)}
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"

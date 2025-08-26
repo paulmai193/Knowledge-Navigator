@@ -235,6 +235,7 @@ function UserManagement({ users, onCreateUser, onDeleteUser, onUpdateUser, group
             >
               <option value="USER">User</option>
               <option value="ADMIN">Admin</option>
+              <option value="PROJECT_OWNER">Project Owner</option>
             </select>
             <div className="col-span-2">
               <label className="block text-sm font-medium mb-2">Groups</label>
@@ -286,6 +287,7 @@ function UserManagement({ users, onCreateUser, onDeleteUser, onUpdateUser, group
             >
               <option value="USER">User</option>
               <option value="ADMIN">Admin</option>
+              <option value="PROJECT_OWNER">Project Owner</option>
             </select>
             <div className="col-span-2">
               <label className="block text-sm font-medium mb-2">Groups</label>
