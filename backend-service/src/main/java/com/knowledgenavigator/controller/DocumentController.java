@@ -28,7 +28,9 @@ public class DocumentController {
 
     @GetMapping
     public ResponseEntity<Map<String, List<DocumentEntity>>> getDocuments() {
-        return ResponseEntity.ok(Map.of("documents", documentService.getAllDocuments()));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+        return ResponseEntity.ok(Map.of("documents", documentService.getAccessibleDocuments(username)));
     }
 
     @GetMapping("/{id}")
