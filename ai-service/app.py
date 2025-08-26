@@ -118,6 +118,19 @@ async def create_embedding(request: EmbeddingRequest):
         logger.error(f"Error generating embedding: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/insights")
+async def generate_document_insights(request: dict):
+    """Generate insights for document content"""
+    logger.info(f"Generating insights for document: {request.get('document_id')}")
+    try:
+        content = request.get("content", "")
+        insights = await generate_insights(content)
+        logger.info(f"Generated {len(insights)} insights")
+        return {"insights": insights}
+    except Exception as e:
+        logger.error(f"Error generating insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def extract_text_content(file_path: str, content_type: str) -> str:
     """Extract text from uploaded files"""
     try:
