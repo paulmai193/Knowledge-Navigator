@@ -45,6 +45,9 @@ public class PreprocessingService {
     @Autowired
     private VectorSearchService vectorSearchService;
 
+    @Autowired
+    private TextExtractionService textExtractionService;
+
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
 
@@ -66,7 +69,7 @@ public class PreprocessingService {
             documentRepository.save(document);
 
             // Extract and clean text
-            String content = extractTextContent(document.getFilePath(), document.getContentType());
+            String content = textExtractionService.extractText(document.getFilePath(), document.getContentType());
             String cleanedContent = cleanText(content);
 
             // Update status to chunking
@@ -134,47 +137,7 @@ public class PreprocessingService {
         }
     }
 
-    private String extractTextContent(String filePath, String contentType) throws IOException {
-        try {
-            switch (contentType) {
-                case "text/plain":
-                    return Files.readString(Paths.get(filePath));
-                case "application/pdf":
-                    return extractPdfText(filePath);
-                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                    return extractDocxText(filePath);
-                case "application/msword":
-                    return extractDocText(filePath);
-                default:
-                    return "Content extraction not supported for: " + contentType;
-            }
-        } catch (Exception e) {
-            throw new IOException("Error extracting text from file: " + e.getMessage(), e);
-        }
-    }
 
-    private String extractPdfText(String filePath) throws IOException {
-        try (PDDocument document = PDDocument.load(new FileInputStream(filePath))) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            return stripper.getText(document);
-        }
-    }
-
-    private String extractDocxText(String filePath) throws IOException {
-        try (FileInputStream fis = new FileInputStream(filePath);
-             XWPFDocument document = new XWPFDocument(fis);
-             XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-            return extractor.getText();
-        }
-    }
-
-    private String extractDocText(String filePath) throws IOException {
-        try (FileInputStream fis = new FileInputStream(filePath);
-             HWPFDocument document = new HWPFDocument(fis);
-             WordExtractor extractor = new WordExtractor(document)) {
-            return extractor.getText();
-        }
-    }
 
     private String cleanText(String content) {
         return content.replaceAll("\\s+", " ")

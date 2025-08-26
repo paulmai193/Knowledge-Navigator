@@ -16,6 +16,7 @@ public class DocumentEntity {
     private boolean processed;
     private long fileSize;
     private ProcessingStatus processingStatus;
+    private String userId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -43,6 +44,9 @@ public class DocumentEntity {
 
     public ProcessingStatus getProcessingStatus() { return processingStatus; }
     public void setProcessingStatus(ProcessingStatus processingStatus) { this.processingStatus = processingStatus; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     // Additional getters for frontend compatibility
     public String getContent_type() { return contentType; }
