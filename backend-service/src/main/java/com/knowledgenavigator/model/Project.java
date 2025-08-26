@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 
 @Document(collection = "projects")
 public class Project {
@@ -15,6 +16,11 @@ public class Project {
     private LocalDateTime createdDate;
     private List<String> documentIds;
     private List<String> userIds;
+
+    public Project() {
+        this.documentIds = new ArrayList<>();
+        this.userIds = new ArrayList<>();
+    }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
