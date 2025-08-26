@@ -2,6 +2,7 @@ package com.knowledgenavigator.controller;
 
 import com.knowledgenavigator.model.Project;
 import com.knowledgenavigator.service.ProjectService;
+import com.knowledgenavigator.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,9 @@ public class ProjectsController {
 
     @Autowired
     private ProjectService projectService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @GetMapping
     public ResponseEntity<Map<String, Object>> getProjects() {
@@ -61,5 +65,41 @@ public class ProjectsController {
     public ResponseEntity<Void> deleteProject(@PathVariable String id) {
         projectService.deleteProject(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/add-user")
+    public ResponseEntity<Project> addUserToProject(@PathVariable String id, @RequestBody Map<String, String> request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = auth.getName();
+        
+        // Check if user has permission to add users to this project
+        if (!canManageProject(id, currentUser)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        String userId = request.get("userId");
+        Project project = projectService.addUserToProject(id, userId);
+        if (project != null) {
+            return ResponseEntity.ok(project);
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    private boolean canManageProject(String projectId, String username) {
+        com.knowledgenavigator.model.User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null) return false;
+        
+        // ADMIN can manage any project
+        if (user.getRole() == com.knowledgenavigator.model.Role.ADMIN) {
+            return true;
+        }
+        
+        // PROJECT_OWNER can manage their own projects
+        if (user.getRole() == com.knowledgenavigator.model.Role.PROJECT_OWNER) {
+            Project project = projectService.getProjectById(projectId);
+            return project != null && username.equals(project.getCreatedBy());
+        }
+        
+        return false;
     }
 }

@@ -14,6 +14,7 @@ public class Project {
     private String createdBy;
     private LocalDateTime createdDate;
     private List<String> documentIds;
+    private List<String> userIds;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -32,6 +33,9 @@ public class Project {
 
     public List<String> getDocumentIds() { return documentIds; }
     public void setDocumentIds(List<String> documentIds) { this.documentIds = documentIds; }
+
+    public List<String> getUserIds() { return userIds; }
+    public void setUserIds(List<String> userIds) { this.userIds = userIds; }
 
     // Frontend compatibility getters
     public String getCreated_date() { return createdDate != null ? createdDate.toString() : null; }

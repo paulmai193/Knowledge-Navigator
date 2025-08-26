@@ -8,6 +8,7 @@ function AdminPanel({ user, onClose }) {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -21,14 +22,16 @@ function AdminPanel({ user, onClose }) {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [usersRes, groupsRes, docsRes] = await Promise.all([
+      const [usersRes, groupsRes, docsRes, projectsRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/admin/users`),
         axios.get(`${API_BASE_URL}/api/admin/groups`),
-        axios.get(`${API_BASE_URL}/api/admin/documents`)
+        axios.get(`${API_BASE_URL}/api/admin/documents`),
+        axios.get(`${API_BASE_URL}/api/projects`)
       ]);
       setUsers(usersRes.data);
       setGroups(groupsRes.data);
       setDocuments(docsRes.data);
+      setProjects(projectsRes.data.projects || []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -111,7 +114,7 @@ function AdminPanel({ user, onClose }) {
         <div className="flex-1 overflow-hidden">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8 px-6">
-              {['users', 'groups', 'documents'].map((tab) => (
+              {['users', 'groups', 'documents', 'projects'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -167,6 +170,13 @@ function AdminPanel({ user, onClose }) {
                     editForm={editForm}
                     setEditForm={setEditForm}
                     onUpdateDocument={loadAllData}
+                  />
+                )}
+                {activeTab === 'projects' && (
+                  <ProjectManagement 
+                    projects={projects}
+                    users={users}
+                    onUpdateProject={loadAllData}
                   />
                 )}
               </>
@@ -614,6 +624,107 @@ function DocumentManagement({ documents, groups, users, editingItem, setEditingI
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectManagement({ projects, users, onUpdateProject }) {
+  const [managingProject, setManagingProject] = useState(null);
+
+  const addUserToProject = async (projectId, userId) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/projects/${projectId}/add-user`, { userId });
+      onUpdateProject();
+      setManagingProject(null);
+    } catch (error) {
+      console.error('Error adding user to project:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Project Management</h2>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Owner</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {projects.map((project) => (
+              <tr key={project.id}>
+                <td className="px-6 py-4 whitespace-nowrap">{project.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{project.description}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{project.createdBy}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{project.userIds?.length || 0} users</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <button
+                    onClick={() => setManagingProject(project)}
+                    className="text-blue-600 hover:text-blue-900"
+                  >
+                    Manage Users
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {managingProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold">Manage Project Users</h3>
+              <button onClick={() => setManagingProject(null)} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-gray-600 mb-4">Project: <strong>{managingProject.name}</strong></p>
+              <div className="mb-4">
+                <h4 className="font-medium mb-2">Current Users ({managingProject.userIds?.length || 0})</h4>
+                <div className="max-h-32 overflow-y-auto border rounded p-2">
+                  {managingProject.userIds?.map(userId => {
+                    const user = users.find(u => u.username === userId);
+                    return (
+                      <div key={userId} className="text-sm py-1">
+                        {user ? `${user.username} (${user.role})` : userId}
+                      </div>
+                    );
+                  }) || <div className="text-sm text-gray-500">No users assigned</div>}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">Add User</h4>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addUserToProject(managingProject.id, e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="">Select user to add...</option>
+                  {users
+                    .filter(user => !managingProject.userIds?.includes(user.username))
+                    .map(user => (
+                      <option key={user.id} value={user.username}>
+                        {user.username} ({user.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       )}

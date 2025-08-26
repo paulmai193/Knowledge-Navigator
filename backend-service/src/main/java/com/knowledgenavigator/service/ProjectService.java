@@ -31,7 +31,24 @@ public class ProjectService {
         project.setCreatedBy(createdBy);
         project.setCreatedDate(LocalDateTime.now());
         project.setDocumentIds(new ArrayList<>());
+        project.setUserIds(new ArrayList<>());
+        project.getUserIds().add(createdBy);
         return projectRepository.save(project);
+    }
+
+    public Project addUserToProject(String projectId, String userId) {
+        Project project = projectRepository.findById(projectId).orElse(null);
+        if (project != null && !project.getUserIds().contains(userId)) {
+            project.getUserIds().add(userId);
+            return projectRepository.save(project);
+        }
+        return project;
+    }
+
+    public List<Project> getProjectsByUser(String userId) {
+        return projectRepository.findAll().stream()
+            .filter(project -> project.getUserIds() != null && project.getUserIds().contains(userId))
+            .collect(java.util.stream.Collectors.toList());
     }
 
     public Project updateProject(String id, String name, String description) {
