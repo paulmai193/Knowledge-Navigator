@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -27,6 +28,9 @@ public class DataIngestionService {
     @Autowired
     private GroupAssignmentService groupAssignmentService;
 
+    @Autowired
+    private com.knowledgenavigator.service.ProjectService projectService;
+
     @Value("${app.upload.dir:/app/uploads}")
     private String uploadDir;
 
@@ -34,8 +38,16 @@ public class DataIngestionService {
         try {
             DocumentEntity document = storeFile(file, username);
             
-            // Assign to user groups
-            groupAssignmentService.assignDocumentToUserGroups(document.getId(), username);
+            // Check if user belongs to a project
+            List<com.knowledgenavigator.model.Project> userProjects = projectService.getProjectsByUser(username);
+            if (!userProjects.isEmpty()) {
+                // Assign to first project only
+                document.setProjectId(userProjects.get(0).getId());
+                documentRepository.save(document);
+            } else {
+                // Assign to user groups if no project
+                groupAssignmentService.assignDocumentToUserGroups(document.getId(), username);
+            }
             
             // Start processing pipeline
             preprocessingService.processDocument(document.getId());

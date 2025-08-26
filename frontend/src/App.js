@@ -32,6 +32,8 @@ function App({ user, onLogout }) {
   const [newProject, setNewProject] = useState({ name: '', description: '' });
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
+  const [managingProject, setManagingProject] = useState(null);
+  const [availableUsers, setAvailableUsers] = useState([]);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -147,6 +149,30 @@ function App({ user, onLogout }) {
       console.error('Error creating project:', error);
       alert('Error creating project. Please try again.');
     }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/users`);
+      setAvailableUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const addUserToProject = async (projectId, userId) => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/projects/${projectId}/add-user`, { userId });
+      await fetchProjects();
+      setManagingProject(null);
+    } catch (error) {
+      console.error('Error adding user to project:', error);
+      alert('Error adding user to project.');
+    }
+  };
+
+  const canManageProject = (project) => {
+    return user?.role === 'ADMIN' || (user?.role === 'PROJECT_OWNER' && project.createdBy === user.username);
   };
 
   const handleAskQuestion = async (e) => {
@@ -634,13 +660,14 @@ function App({ user, onLogout }) {
                 <h2 className="text-2xl font-bold text-slate-900">Projects</h2>
                 <p className="text-slate-600">Organize your knowledge by project</p>
               </div>
-              <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Project
-                  </Button>
-                </DialogTrigger>
+              {(user?.role === 'ADMIN' || user?.role === 'PROJECT_OWNER') && (
+                <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Project
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Create New Project</DialogTitle>
@@ -678,7 +705,8 @@ function App({ user, onLogout }) {
                     </div>
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              )}
             </div>
 
             <div className="grid gap-6">
@@ -690,9 +718,25 @@ function App({ user, onLogout }) {
                         <CardTitle className="text-xl">{project.name}</CardTitle>
                         <CardDescription className="mt-2">{project.description}</CardDescription>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        {project.documents?.length || 0} docs
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="outline" className="text-xs">
+                          {project.documents?.length || 0} docs
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {project.userIds?.length || 0} users
+                        </Badge>
+                        {canManageProject(project) && (
+                          <button
+                            onClick={() => {
+                              setManagingProject(project);
+                              fetchUsers();
+                            }}
+                            className="text-blue-600 hover:text-blue-900 text-xs"
+                          >
+                            Manage Users
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -727,19 +771,72 @@ function App({ user, onLogout }) {
                     <FolderOpen className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
                     <p className="text-slate-600 mb-4">Create your first project to organize knowledge</p>
-                    <Button 
-                      onClick={() => setIsCreateProjectOpen(true)}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Project
-                    </Button>
+                    {(user?.role === 'ADMIN' || user?.role === 'PROJECT_OWNER') && (
+                      <Button 
+                        onClick={() => setIsCreateProjectOpen(true)}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Project
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )}
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Project User Management Modal */}
+        {managingProject && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold">Manage Project Users</h3>
+                <button onClick={() => setManagingProject(null)} className="text-gray-500 hover:text-gray-700">
+                  ✕
+                </button>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-gray-600 mb-4">Project: <strong>{managingProject.name}</strong></p>
+                <div className="mb-4">
+                  <h4 className="font-medium mb-2">Current Users ({managingProject.userIds?.length || 0})</h4>
+                  <div className="max-h-32 overflow-y-auto border rounded p-2">
+                    {managingProject.userIds?.map(userId => {
+                      const user = availableUsers.find(u => u.username === userId);
+                      return (
+                        <div key={userId} className="text-sm py-1">
+                          {user ? `${user.username} (${user.role})` : userId}
+                        </div>
+                      );
+                    }) || <div className="text-sm text-gray-500">No users assigned</div>}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Add User</h4>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addUserToProject(managingProject.id, e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="w-full border rounded px-3 py-2"
+                  >
+                    <option value="">Select user to add...</option>
+                    {availableUsers
+                      .filter(user => !managingProject.userIds?.includes(user.username))
+                      .map(user => (
+                        <option key={user.id} value={user.username}>
+                          {user.username} ({user.role})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
       
       {showAdminPanel && <AdminPanel user={user} onClose={() => setShowAdminPanel(false)} />}

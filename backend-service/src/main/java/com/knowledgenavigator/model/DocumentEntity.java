@@ -17,6 +17,7 @@ public class DocumentEntity {
     private long fileSize;
     private ProcessingStatus processingStatus;
     private String userId;
+    private String projectId;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -47,6 +48,9 @@ public class DocumentEntity {
 
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
+
+    public String getProjectId() { return projectId; }
+    public void setProjectId(String projectId) { this.projectId = projectId; }
 
     // Additional getters for frontend compatibility
     public String getContent_type() { return contentType; }
