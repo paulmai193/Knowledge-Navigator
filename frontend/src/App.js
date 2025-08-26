@@ -3,6 +3,7 @@ import axios from 'axios';
 import './utils/auth';
 import { Upload, FileText, Brain, TrendingUp, Search, Plus, FolderOpen, Zap, BarChart3, Clock, CheckCircle, MessageCircle, Send, User, Bot, LogOut } from 'lucide-react';
 import AuthWrapper from './components/AuthWrapper';
+import AdminPanel from './components/AdminPanel';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
@@ -25,6 +26,7 @@ function App({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
@@ -202,12 +204,20 @@ function App({ user, onLogout }) {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
+              <div className="flex items-center space-x-4 text-sm text-slate-600">
                 <User className="w-4 h-4" />
-                <span>{user?.username}</span>
+                <span>{user?.username} ({user?.role})</span>
+                {user?.role === 'ADMIN' && (
+                  <button
+                    onClick={() => setShowAdminPanel(!showAdminPanel)}
+                    className="bg-indigo-600 text-white px-3 py-1 rounded text-xs hover:bg-indigo-700"
+                  >
+                    Admin Panel
+                  </button>
+                )}
                 <button
                   onClick={onLogout}
-                  className="ml-2 p-1 text-slate-400 hover:text-slate-600"
+                  className="p-1 text-slate-400 hover:text-slate-600"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -731,6 +741,8 @@ function App({ user, onLogout }) {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {showAdminPanel && <AdminPanel user={user} onClose={() => setShowAdminPanel(false)} />}
     </div>
   );
 }

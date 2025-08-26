@@ -24,46 +24,57 @@ public class DataIngestionService {
     @Autowired
     private PreprocessingService preprocessingService;
 
+    @Autowired
+    private GroupAssignmentService groupAssignmentService;
+
     @Value("${app.upload.dir:/app/uploads}")
     private String uploadDir;
 
-    public Map<String, Object> ingestDocument(MultipartFile file) {
+    public Map<String, Object> ingestDocument(MultipartFile file, String username) {
         try {
-            String fileId = UUID.randomUUID().toString();
-            String originalFilename = file.getOriginalFilename();
-            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String storedFilename = fileId + fileExtension;
+            DocumentEntity document = storeFile(file, username);
             
-            Path uploadPath = Paths.get(uploadDir);
-            Files.createDirectories(uploadPath);
+            // Assign to user groups
+            groupAssignmentService.assignDocumentToUserGroups(document.getId(), username);
             
-            Path filePath = uploadPath.resolve(storedFilename);
-            Files.copy(file.getInputStream(), filePath);
-
-            DocumentEntity document = new DocumentEntity();
-            document.setId(fileId);
-            document.setFilename(originalFilename);
-            document.setStoredFilename(storedFilename);
-            document.setFilePath(filePath.toString());
-            document.setContentType(file.getContentType());
-            document.setUploadDate(LocalDateTime.now());
-            document.setProcessed(false);
-            document.setFileSize(file.getSize());
-            document.setProcessingStatus(ProcessingStatus.UPLOADED);
-
-            documentRepository.save(document);
-
-            // Start preprocessing pipeline
-            preprocessingService.processDocument(fileId);
+            // Start processing pipeline
+            preprocessingService.processDocument(document.getId());
 
             return Map.of(
                 "message", "Document ingested successfully",
-                "document_id", fileId,
-                "filename", originalFilename,
+                "document_id", document.getId(),
+                "filename", document.getFilename(),
                 "status", ProcessingStatus.UPLOADED
             );
         } catch (IOException e) {
             throw new RuntimeException("Error ingesting document: " + e.getMessage());
         }
+    }
+
+    private DocumentEntity storeFile(MultipartFile file, String username) throws IOException {
+        String fileId = UUID.randomUUID().toString();
+        String originalFilename = file.getOriginalFilename();
+        String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        String storedFilename = fileId + fileExtension;
+        
+        Path uploadPath = Paths.get(uploadDir);
+        Files.createDirectories(uploadPath);
+        
+        Path filePath = uploadPath.resolve(storedFilename);
+        Files.copy(file.getInputStream(), filePath);
+
+        DocumentEntity document = new DocumentEntity();
+        document.setId(fileId);
+        document.setFilename(originalFilename);
+        document.setStoredFilename(storedFilename);
+        document.setFilePath(filePath.toString());
+        document.setContentType(file.getContentType());
+        document.setUploadDate(LocalDateTime.now());
+        document.setProcessed(false);
+        document.setFileSize(file.getSize());
+        document.setProcessingStatus(ProcessingStatus.UPLOADED);
+        document.setUserId(username);
+
+        return documentRepository.save(document);
     }
 }

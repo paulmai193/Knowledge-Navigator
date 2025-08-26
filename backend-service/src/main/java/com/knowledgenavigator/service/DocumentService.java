@@ -17,8 +17,11 @@ public class DocumentService {
     @Autowired
     private DataIngestionService dataIngestionService;
 
-    public Map<String, Object> uploadDocument(MultipartFile file) {
-        return dataIngestionService.ingestDocument(file);
+    @Autowired
+    private AuthorizationService authorizationService;
+
+    public Map<String, Object> uploadDocument(MultipartFile file, String username) {
+        return dataIngestionService.ingestDocument(file, username);
     }
 
     public List<DocumentEntity> getAllDocuments() {
@@ -35,7 +38,4 @@ public class DocumentService {
             .filter(doc -> doc.isProcessed())
             .collect(java.util.stream.Collectors.toList());
     }
-
-    @Autowired
-    private AuthorizationService authorizationService;
 }
