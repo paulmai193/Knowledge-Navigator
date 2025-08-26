@@ -48,6 +48,9 @@ public class PreprocessingService {
     @Autowired
     private TextExtractionService textExtractionService;
 
+    @Autowired
+    private com.knowledgenavigator.repository.InsightRepository insightRepository;
+
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
 
@@ -117,6 +120,9 @@ public class PreprocessingService {
 
             // Store in knowledge base and create search index
             knowledgeBaseService.indexDocument(documentId, documentChunks);
+
+            // Generate and store insights
+            generateAndStoreInsights(documentId, cleanedContent);
 
             // Update final status
             document.setProcessingStatus(ProcessingStatus.COMPLETED);
@@ -200,6 +206,41 @@ public class PreprocessingService {
                 chunk.getContent(),
                 chunk.getEmbedding()
             );
+        }
+    }
+
+    private void generateAndStoreInsights(String documentId, String content) {
+        logger.info("Generating insights for document: {}", documentId);
+        try {
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(aiServiceUrl + "/insights")
+                .bodyValue(Map.of(
+                    "document_id", documentId,
+                    "content", content.substring(0, Math.min(4000, content.length()))
+                ))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+
+            List<Map<String, Object>> insights = (List<Map<String, Object>>) response.get("insights");
+            if (insights != null) {
+                for (Map<String, Object> insightData : insights) {
+                    com.knowledgenavigator.model.Insight insight = new com.knowledgenavigator.model.Insight();
+                    insight.setId(UUID.randomUUID().toString());
+                    insight.setDocumentId(documentId);
+                    insight.setTitle((String) insightData.get("title"));
+                    insight.setContent((String) insightData.get("content"));
+                    insight.setCategory((String) insightData.get("category"));
+                    insight.setImportanceScore(((Number) insightData.get("importance_score")).doubleValue());
+                    insight.setCreatedDate(LocalDateTime.now());
+                    
+                    insightRepository.save(insight);
+                }
+                logger.info("Stored {} insights for document: {}", insights.size(), documentId);
+            }
+        } catch (Exception e) {
+            logger.error("Error generating insights for document {}: {}", documentId, e.getMessage(), e);
         }
     }
 }
