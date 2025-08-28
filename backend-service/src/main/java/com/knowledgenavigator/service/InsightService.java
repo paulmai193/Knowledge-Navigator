@@ -8,7 +8,7 @@ import java.util.List;
 
 @Service
 public class InsightService {
-
+    
     @Autowired
     private InsightRepository insightRepository;
     

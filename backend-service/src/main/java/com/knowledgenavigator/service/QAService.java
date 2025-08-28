@@ -24,10 +24,7 @@ public class QAService {
 
     @Autowired
     private DocumentChunkRepository chunkRepository;
-
-    @Autowired
-    private SecurityService securityService;
-
+    
     @Autowired
     private VectorSearchService vectorSearchService;
     
@@ -57,7 +54,7 @@ public class QAService {
         logger.debug("Question: {}", question);
         try {
             // Check user permissions
-            if (!securityService.checkUserPermission(userId)) {
+            if (userId != null && !userId.isEmpty()) {
                 logger.warn("Permission denied for user: {}", userId);
                 return Map.of("error", "Insufficient permissions", "status", "PERMISSION_DENIED");
             }
@@ -159,45 +156,40 @@ public class QAService {
         List<DocumentChunk> selectedChunks = new ArrayList<>();
         int totalLength = 0;
         
+        // Implement document-level access control
+        // For now, allow access to all documents for authenticated users
+        if (userId != null && !userId.isEmpty()){
+            return new ArrayList<>();
+        }
+        
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
         for (String docId : documentIds) {
-            if (!this.checkDocumentAccess(userId, docId)) {
-                continue;
-            }
-            
-            // Get limited chunks per document at database level
-            List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
-            
-            for (DocumentChunk chunk : docChunks) {
+            if (accessibleDocIds.contains(docId)) {
+                // Get limited chunks per document at database level
+                List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
+                for (DocumentChunk chunk : docChunks) {
+                    if (selectedChunks.size() >= maxChunks) {
+                        break;
+                    }
+                    
+                    int chunkLength = chunk.getContent().length();
+                    if (totalLength + chunkLength > maxContextLength) {
+                        break;
+                    }
+                    
+                    selectedChunks.add(chunk);
+                    totalLength += chunkLength;
+                }
+                
                 if (selectedChunks.size() >= maxChunks) {
                     break;
                 }
-                
-                int chunkLength = chunk.getContent().length();
-                if (totalLength + chunkLength > maxContextLength) {
-                    break;
-                }
-                
-                selectedChunks.add(chunk);
-                totalLength += chunkLength;
-            }
-            
-            if (selectedChunks.size() >= maxChunks) {
-                break;
             }
         }
         
         return selectedChunks;
     }
     
-    public boolean checkDocumentAccess(String userId, String documentId) {
-        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
-        logger.debug("Found {} of accessible Doc", accessibleDocIds);
-        // Implement document-level access control
-        // For now, allow access to all documents for authenticated users
-        logger.debug("Checking access for user {} to document {}", userId, documentId);
-        return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentId);
-    }
-
     private String summarizeAnswer(String query, List<DocumentChunk> chunks) {
         try {
             String context = chunks.stream()
