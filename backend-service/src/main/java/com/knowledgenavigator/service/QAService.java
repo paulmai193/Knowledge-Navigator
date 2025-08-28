@@ -24,10 +24,7 @@ public class QAService {
 
     @Autowired
     private DocumentChunkRepository chunkRepository;
-
-    @Autowired
-    private SecurityService securityService;
-
+    
     @Autowired
     private VectorSearchService vectorSearchService;
     
@@ -54,7 +51,7 @@ public class QAService {
         logger.debug("Question: {}", question);
         try {
             // Check user permissions
-            if (!securityService.checkUserPermission(userId)) {
+            if (userId != null && !userId.isEmpty()) {
                 logger.warn("Permission denied for user: {}", userId);
                 return Map.of("error", "Insufficient permissions", "status", "PERMISSION_DENIED");
             }
