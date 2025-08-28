@@ -50,8 +50,8 @@ public class AuthorizationService {
         
         // Admin can access all documents
         if (user.getRole().name().equals("ADMIN")) {
-            return groupRepository.findAll().stream()
-                           .flatMap(group -> group.getDocumentIds().stream())
+            return documentRepository.findAll().stream()
+                           .map(DocumentEntity::getId)
                            .distinct()
                            .toList();
         }
@@ -71,9 +71,10 @@ public class AuthorizationService {
         
         // Second priority: Documents in user's groups (if not in any project)
         // Get documents from user's groups and projects also
-        accessibleDocIds.addAll(documentRepository.findAll().stream().map(DocumentEntity::getId)
-                                        .distinct()
-                                        .toList());
+        accessibleDocIds.addAll(groupRepository.findAllById(user.getGroupIds()).stream()
+                       .flatMap(group -> group.getDocumentIds().stream())
+                       .distinct()
+                       .toList());
         
         return accessibleDocIds;
     }
