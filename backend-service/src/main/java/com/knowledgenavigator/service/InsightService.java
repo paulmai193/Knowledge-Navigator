@@ -11,12 +11,12 @@ public class InsightService {
 
     @Autowired
     private InsightRepository insightRepository;
-
+    
     @Autowired
-    private ProjectAuthorizationService projectAuthorizationService;
-
+    private AuthorizationService authorizationService;
+    
     public List<Insight> getAccessibleInsights(String username) {
-        List<String> accessibleDocIds = projectAuthorizationService.getAccessibleDocuments(username);
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(username);
         return insightRepository.findByDocumentIdIn(accessibleDocIds);
     }
 }
