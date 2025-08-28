@@ -30,6 +30,9 @@ public class QAService {
 
     @Autowired
     private VectorSearchService vectorSearchService;
+    
+    @Autowired
+    private AuthorizationService authorizationService;
 
     @Autowired
     private WebClient.Builder webClientBuilder;
@@ -158,7 +161,7 @@ public class QAService {
         int totalLength = 0;
         
         for (String docId : documentIds) {
-            if (!securityService.checkDocumentAccess(userId, docId)) {
+            if (!this.checkDocumentAccess(userId, docId)) {
                 continue;
             }
             
@@ -185,6 +188,13 @@ public class QAService {
         }
         
         return selectedChunks;
+    }
+    
+    public boolean checkDocumentAccess(String userId, String documentId) {
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
+        // Implement document-level access control
+        // For now, allow access to all documents for authenticated users
+        return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentId);
     }
 
     private String summarizeAnswer(String query, List<DocumentChunk> chunks) {

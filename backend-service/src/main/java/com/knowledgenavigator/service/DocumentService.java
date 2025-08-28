@@ -18,7 +18,7 @@ public class DocumentService {
     private DataIngestionService dataIngestionService;
 
     @Autowired
-    private ProjectAuthorizationService projectAuthorizationService;
+    private AuthorizationService authorizationService;
 
     public Map<String, Object> uploadDocument(MultipartFile file, String username) {
         return dataIngestionService.ingestDocument(file, username);
@@ -33,7 +33,7 @@ public class DocumentService {
     }
 
     public List<DocumentEntity> getAccessibleDocuments(String username) {
-        List<String> accessibleDocIds = projectAuthorizationService.getAccessibleDocuments(username);
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(username);
         return documentRepository.findAllById(accessibleDocIds).stream()
             .filter(doc -> doc.isProcessed())
             .collect(java.util.stream.Collectors.toList());
