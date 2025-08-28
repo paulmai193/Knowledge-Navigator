@@ -4,6 +4,7 @@ import com.knowledgenavigator.model.QASession;
 import com.knowledgenavigator.model.DocumentChunk;
 import com.knowledgenavigator.repository.QASessionRepository;
 import com.knowledgenavigator.repository.DocumentChunkRepository;
+import org.apache.http.auth.AuthenticationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -153,15 +154,15 @@ public class QAService {
         }
     }
 
-    private List<DocumentChunk> getAccessibleDocuments(String userId, List<String> documentIds) {
+    private List<DocumentChunk> getAccessibleDocuments(String userId, List<String> documentIds) throws AuthenticationException {
         List<DocumentChunk> selectedChunks = new ArrayList<>();
         int totalLength = 0;
         
+        if (!this.checkDocumentAccess(userId, documentIds)) {
+            throw new AuthenticationException("One of documents need permission to fetch");
+        }
+        
         for (String docId : documentIds) {
-            if (!this.checkDocumentAccess(userId, docId)) {
-                continue;
-            }
-            
             // Get limited chunks per document at database level
             List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
             
@@ -187,11 +188,11 @@ public class QAService {
         return selectedChunks;
     }
     
-    public boolean checkDocumentAccess(String userId, String documentId) {
+    public boolean checkDocumentAccess(String userId, List<String> documentIds) {
         List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
         // Implement document-level access control
         // For now, allow access to all documents for authenticated users
-        return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentId);
+        return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentIds);
     }
 
     private String summarizeAnswer(String query, List<DocumentChunk> chunks) {

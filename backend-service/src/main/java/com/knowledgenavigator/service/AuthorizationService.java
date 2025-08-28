@@ -1,5 +1,6 @@
 package com.knowledgenavigator.service;
 
+import com.knowledgenavigator.model.DocumentEntity;
 import com.knowledgenavigator.model.Group;
 import com.knowledgenavigator.model.Project;
 import com.knowledgenavigator.model.User;
@@ -70,10 +71,9 @@ public class AuthorizationService {
         
         // Second priority: Documents in user's groups (if not in any project)
         // Get documents from user's groups and projects also
-        accessibleDocIds.addAll(groupRepository.findAllById(user.getGroupIds()).stream()
-                       .flatMap(group -> group.getDocumentIds().stream())
-                       .distinct()
-                       .toList());
+        accessibleDocIds.addAll(documentRepository.findAll().stream().map(DocumentEntity::getId)
+                                        .distinct()
+                                        .toList());
         
         return accessibleDocIds;
     }
