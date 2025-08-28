@@ -134,6 +134,22 @@ scripts\setup-ollama.bat
 ./scripts/setup-ollama.sh
 ```
 
+The setup scripts will automatically pull the models configured in your `.env` file. You can customize which models to use by modifying the environment variables:
+
+- `OLLAMA_CHAT_MODEL`: For general chat and conversation
+- `OLLAMA_EMBEDDING_MODEL`: For generating text embeddings
+- `OLLAMA_INSIGHT_MODEL`: For document analysis and insight generation
+- `OLLAMA_QA_MODEL`: For question answering tasks
+
+**Example custom configuration:**
+```bash
+# Use different models for different tasks
+OLLAMA_CHAT_MODEL=llama3.2
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_INSIGHT_MODEL=mistral
+OLLAMA_QA_MODEL=codellama
+```
+
 ### Stop Services
 
 **Windows:**
@@ -177,12 +193,20 @@ scripts\stop.bat
 ### System
 - `GET /api/health` - Health check
 
+### AI Service Configuration
+- `GET /config/models` - Get current model configuration
+- `POST /config/models` - Update model configuration at runtime
+- `GET /models/available` - List available models from Ollama
+
 ## Environment Configuration
 
 ### Backend (.env)
 - `MONGO_URL`: MongoDB connection string
 - `OLLAMA_URL`: Ollama API URL
-- `OLLAMA_MODEL`: AI model name (default: llama3.2)
+- `OLLAMA_CHAT_MODEL`: Chat/general purpose model (default: llama3.2)
+- `OLLAMA_EMBEDDING_MODEL`: Text embedding model (default: nomic-embed-text)
+- `OLLAMA_INSIGHT_MODEL`: Document insight generation model (default: llama3.2)
+- `OLLAMA_QA_MODEL`: Question & Answer model (default: llama3.2)
 - `DB_NAME`: Database name
 - `CORS_ORIGINS`: Allowed CORS origins
 
@@ -192,7 +216,10 @@ scripts\stop.bat
 ### AI Service (.env)
 - `MONGO_URL`: MongoDB connection string
 - `OLLAMA_URL`: Ollama API URL
-- `OLLAMA_MODEL`: AI model name
+- `OLLAMA_CHAT_MODEL`: Chat/general purpose model
+- `OLLAMA_EMBEDDING_MODEL`: Text embedding model
+- `OLLAMA_INSIGHT_MODEL`: Document insight generation model
+- `OLLAMA_QA_MODEL`: Question & Answer model
 
 ## Docker Services
 
