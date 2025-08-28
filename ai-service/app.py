@@ -31,7 +31,11 @@ app.add_middleware(
 # Configuration
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+# Ollama Models Configuration
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_INSIGHT_MODEL = os.getenv("OLLAMA_INSIGHT_MODEL", "llama3.2")
+OLLAMA_QA_MODEL = os.getenv("OLLAMA_QA_MODEL", "llama3.2")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.knowledge_navigator
@@ -48,6 +52,12 @@ class QARequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     text: str
+
+class ModelConfig(BaseModel):
+    chat_model: str = None
+    embedding_model: str = None
+    insight_model: str = None
+    qa_model: str = None
 
 @app.post("/process")
 async def process_document(request: ProcessRequest):
@@ -168,7 +178,7 @@ async def generate_insights(content: str) -> List[Dict[str, Any]]:
     
     async with aiohttp.ClientSession() as session:
         payload = {
-            "model": OLLAMA_MODEL,
+            "model": OLLAMA_INSIGHT_MODEL,
             "prompt": prompt,
             "stream": False
         }
@@ -244,7 +254,7 @@ async def generate_answer_with_context(question: str, context: str) -> str:
     
     async with aiohttp.ClientSession() as session:
         payload = {
-            "model": OLLAMA_MODEL,
+            "model": OLLAMA_QA_MODEL,
             "prompt": prompt,
             "stream": False,
             "options": {
@@ -263,7 +273,7 @@ async def generate_text_embedding(text: str) -> List[float]:
     try:
         async with aiohttp.ClientSession() as session:
             payload = {
-                "model": "nomic-embed-text",  # Use embedding model
+                "model": OLLAMA_EMBEDDING_MODEL,
                 "prompt": text
             }
             
@@ -285,6 +295,52 @@ async def generate_text_embedding(text: str) -> List[float]:
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "AI/NLP Service"}
+
+@app.get("/config/models")
+async def get_model_config():
+    """Get current model configuration"""
+    return {
+        "embedding_model": OLLAMA_EMBEDDING_MODEL,
+        "insight_model": OLLAMA_INSIGHT_MODEL,
+        "qa_model": OLLAMA_QA_MODEL,
+        "ollama_url": OLLAMA_URL
+    }
+
+@app.post("/config/models")
+async def update_model_config(config: dict):
+    """Update model configuration at runtime"""
+    global OLLAMA_EMBEDDING_MODEL, OLLAMA_INSIGHT_MODEL, OLLAMA_QA_MODEL
+    
+    if "embedding_model" in config:
+        OLLAMA_EMBEDDING_MODEL = config["embedding_model"]
+    if "insight_model" in config:
+        OLLAMA_INSIGHT_MODEL = config["insight_model"]
+    if "qa_model" in config:
+        OLLAMA_QA_MODEL = config["qa_model"]
+    
+    return {
+        "status": "updated",
+        "current_config": {
+            "embedding_model": OLLAMA_EMBEDDING_MODEL,
+            "insight_model": OLLAMA_INSIGHT_MODEL,
+            "qa_model": OLLAMA_QA_MODEL
+        }
+    }
+
+@app.get("/models/available")
+async def list_available_models():
+    """List available models from Ollama"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{OLLAMA_URL}/api/tags") as resp:
+                if resp.status == 200:
+                    result = await resp.json()
+                    models = [model["name"] for model in result.get("models", [])]
+                    return {"available_models": models}
+                else:
+                    return {"error": "Failed to fetch models from Ollama"}
+    except Exception as e:
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
