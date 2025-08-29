@@ -192,8 +192,10 @@ public class QAService {
     
     public boolean checkDocumentAccess(String userId, String documentId) {
         List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
+        logger.debug("Found {} of accessible Doc", accessibleDocIds);
         // Implement document-level access control
         // For now, allow access to all documents for authenticated users
+        logger.debug("Checking access for user {} to document {}", userId, documentId);
         return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentId);
     }
 

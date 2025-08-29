@@ -10,6 +10,8 @@ from datetime import datetime
 import uuid
 from typing import List, Dict, Any
 import logging
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +21,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI/NLP Service")
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,6 +44,8 @@ OLLAMA_QA_MODEL = os.getenv("OLLAMA_QA_MODEL", "llama3.2")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.knowledge_navigator
 
+
+
 class ProcessRequest(BaseModel):
     document_id: str
     file_path: str
@@ -58,6 +64,9 @@ class ModelConfig(BaseModel):
     embedding_model: str = None
     insight_model: str = None
     qa_model: str = None
+
+class LanguageDetectionRequest(BaseModel):
+    content: str
 
 @app.post("/process")
 async def process_document(request: ProcessRequest):
@@ -139,6 +148,19 @@ async def generate_document_insights(request: dict):
         return {"insights": insights}
     except Exception as e:
         logger.error(f"Error generating insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/detect-language")
+async def detect_language(request: dict):
+    """Detect language of document content"""
+    logger.info(f"Detecting language for content length: {len(request.get('content', ''))}")
+    try:
+        content = request.get("content", "")
+        language = await detect_document_language(content)
+        logger.info(f"Detected language: {language}")
+        return {"language": language}
+    except Exception as e:
+        logger.error(f"Error detecting language: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
@@ -291,6 +313,27 @@ async def generate_text_embedding(text: str) -> List[float]:
     except Exception as e:
         logger.error(f"Error generating embedding: {str(e)}")
         return [0.0] * 384
+
+async def detect_document_language(content: str) -> str:
+    """Detect language of document content using langdetect"""
+    try:
+        # Clean content for better detection
+        clean_content = content.replace('\n', ' ').strip()
+        if len(clean_content) < 10:
+            return "en"
+        
+        # Detect language
+        language_code = detect(clean_content)
+        logger.debug(f"Detected language: {language_code}")
+        
+        return language_code
+        
+    except LangDetectException as e:
+        logger.warning(f"Language detection failed: {str(e)}, defaulting to 'en'")
+        return "en"
+    except Exception as e:
+        logger.error(f"Error detecting language: {str(e)}")
+        return "en"
 
 @app.get("/health")
 async def health_check():
