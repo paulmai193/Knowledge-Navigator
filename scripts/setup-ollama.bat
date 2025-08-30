@@ -25,4 +25,4 @@ echo Models configured:
 echo - Chat: %OLLAMA_CHAT_MODEL%
 echo - Embedding: %OLLAMA_EMBEDDING_MODEL%
 echo - Insights: %OLLAMA_INSIGHT_MODEL%
-echo - Q&A: %OLLAMA_QA_MODEL%
+echo - QnA: %OLLAMA_QA_MODEL%
