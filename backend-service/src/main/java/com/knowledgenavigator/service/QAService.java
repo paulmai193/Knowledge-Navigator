@@ -36,6 +36,9 @@ public class QAService {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+    
+    @Autowired
+    private com.knowledgenavigator.repository.DocumentRepository documentRepository;
 
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
@@ -73,15 +76,11 @@ public class QAService {
             session.setProcessedQuery(processedQuery);
             session.setKeywords(keywords);
 
-            // Create embedding for query
-            List<Double> queryEmbedding = createQueryEmbedding(processedQuery);
-            session.setQueryEmbedding(queryEmbedding);
-
-            // Find related documents using vector search
-            logger.debug("Searching for related documents with embedding size: {}", queryEmbedding.size());
-            List<String> foundDocuments = vectorSearchService.findRelatedDocuments(queryEmbedding);
+            // Get all document languages and search iteratively
+            List<String> documentLanguages = getDocumentLanguages();
+            List<String> foundDocuments = findDocumentsInLanguages(processedQuery, documentLanguages);
             session.setFoundDocuments(foundDocuments);
-            logger.info("Found {} related documents", foundDocuments.size());
+            logger.info("Found {} related documents across {} languages", foundDocuments.size(), documentLanguages.size());
 
             if (foundDocuments.isEmpty()) {
                 logger.warn("No documents found for query: {}", processedQuery);
@@ -219,6 +218,59 @@ public class QAService {
             return (String) response.get("answer");
         } catch (Exception e) {
             return "Unable to generate answer";
+        }
+    }
+
+    private List<String> getDocumentLanguages() {
+        try {
+            return documentRepository.findAll().stream()
+                .map(doc -> doc.getLanguage())
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error getting document languages: {}", e.getMessage());
+            return Arrays.asList("en");
+        }
+    }
+
+    private List<String> findDocumentsInLanguages(String query, List<String> languages) {
+        for (String language : languages) {
+            try {
+                logger.debug("Searching in language: {}", language);
+                String translatedQuery = translateToLanguage(query, language);
+                List<Double> queryEmbedding = createQueryEmbedding(translatedQuery);
+                List<String> documents = vectorSearchService.findRelatedDocuments(queryEmbedding);
+                
+                if (!documents.isEmpty()) {
+                    logger.info("Found {} documents in language: {}", documents.size(), language);
+                    return documents;
+                }
+            } catch (Exception e) {
+                logger.error("Error searching in language {}: {}", language, e.getMessage());
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    private String translateToLanguage(String query, String targetLanguage) {
+        try {
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(aiServiceUrl + "/translate")
+                .bodyValue(Map.of(
+                    "text", query,
+                    "target_languages", Arrays.asList(targetLanguage)
+                ))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+            
+            Map<String, String> translations = (Map<String, String>) response.get("translations");
+            return translations.getOrDefault(targetLanguage, query);
+        } catch (Exception e) {
+            logger.error("Error translating to {}: {}", targetLanguage, e.getMessage());
+            return query;
         }
     }
 

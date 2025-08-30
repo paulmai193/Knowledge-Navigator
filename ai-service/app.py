@@ -12,6 +12,7 @@ from typing import List, Dict, Any
 import logging
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
+from googletrans import Translator
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +45,9 @@ OLLAMA_QA_MODEL = os.getenv("OLLAMA_QA_MODEL", "llama3.2")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.knowledge_navigator
 
+# Initialize Google Translator
+translator = Translator()
+
 
 
 class ProcessRequest(BaseModel):
@@ -67,6 +71,10 @@ class ModelConfig(BaseModel):
 
 class LanguageDetectionRequest(BaseModel):
     content: str
+
+class TranslationRequest(BaseModel):
+    text: str
+    target_languages: List[str]
 
 @app.post("/process")
 async def process_document(request: ProcessRequest):
@@ -161,6 +169,21 @@ async def detect_language(request: dict):
         return {"language": language}
     except Exception as e:
         logger.error(f"Error detecting language: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/translate")
+async def translate_text(request: dict):
+    """Translate text to multiple languages"""
+    logger.info(f"Translating text to {len(request.get('target_languages', []))} languages")
+    try:
+        text = request.get("text", "")
+        target_languages = request.get("target_languages", [])
+        
+        translations = await translate_to_languages(text, target_languages)
+        logger.info(f"Generated {len(translations)} translations")
+        return {"translations": translations}
+    except Exception as e:
+        logger.error(f"Error translating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
@@ -334,6 +357,38 @@ async def detect_document_language(content: str) -> str:
     except Exception as e:
         logger.error(f"Error detecting language: {str(e)}")
         return "en"
+
+async def translate_to_languages(text: str, target_languages: List[str]) -> Dict[str, str]:
+    """Translate text to multiple target languages using argos-translate"""
+    translations = {}
+    
+    for lang in target_languages:
+        try:
+            translation = translate_with_googletrans(text, lang)
+            translations[lang] = translation
+        except Exception as e:
+            logger.error(f"Error translating to {lang}: {str(e)}")
+            translations[lang] = text  # Fallback to original text
+    
+    return translations
+
+def translate_with_googletrans(text: str, target_language: str) -> str:
+    """Translate text using googletrans"""
+    try:
+        # Skip translation if text is too short
+        if len(text.strip()) < 3:
+            return text
+            
+        # Translate using googletrans
+        result = translator.translate(text, dest=target_language)
+        translated = result.text
+        
+        logger.debug(f"Translated from {result.src} to {target_language}")
+        return translated if translated else text
+        
+    except Exception as e:
+        logger.error(f"Google translation error: {str(e)}")
+        return text
 
 @app.get("/health")
 async def health_check():
