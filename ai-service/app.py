@@ -281,21 +281,47 @@ async def get_relevant_context(question: str) -> str:
 
 async def generate_answer_with_context(question: str, context: str) -> str:
     """Generate answer using LLM with specific context"""
-    prompt = f"""
-    You are a helpful assistant that answers questions based on provided context.
+    # Detect if this is a creative task
+    creative_keywords = ['gợi ý', 'suggest', 'template', 'mẫu', 'đặt tên', 'name', 'tạo', 'create', 'viết', 'write', 'thiết kế', 'design', 'ý tưởng', 'idea']
+    is_creative = any(keyword in question.lower() for keyword in creative_keywords)
     
-    Question: {question}
-    
-    Context: {context}
-    
-    Instructions:
-    - Answer the question based only on the provided context
-    - If the context doesn't contain relevant information, say so
-    - Be concise and accurate
-    - Cite specific parts of the context when possible
-    
-    Answer:
-    """
+    if is_creative:
+        prompt = f"""
+        You are a creative assistant that generates content based on provided context.
+        
+        Question: {question}
+        
+        Context: {context}
+        
+        Instructions:
+        - Use the context as inspiration and reference material
+        - Generate creative, helpful content that addresses the request
+        - Be innovative while staying relevant to the context
+        - Provide practical, actionable suggestions
+        - Feel free to expand beyond the context when it helps fulfill the creative request
+        
+        Creative Response:
+        """
+        temperature = 0.9
+        top_p = 0.95
+    else:
+        prompt = f"""
+        You are a helpful assistant that answers questions based on provided context.
+        
+        Question: {question}
+        
+        Context: {context}
+        
+        Instructions:
+        - Answer the question based only on the provided context
+        - If the context doesn't contain relevant information, say so
+        - Be concise and accurate
+        - Cite specific parts of the context when possible
+        
+        Answer:
+        """
+        temperature = 0.7
+        top_p = 0.9
     
     async with aiohttp.ClientSession() as session:
         payload = {
@@ -303,8 +329,8 @@ async def generate_answer_with_context(question: str, context: str) -> str:
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.7,
-                "top_p": 0.9
+                "temperature": temperature,
+                "top_p": top_p
             }
         }
         
