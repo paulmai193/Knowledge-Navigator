@@ -10,6 +10,9 @@ from datetime import datetime
 import uuid
 from typing import List, Dict, Any
 import logging
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
+from googletrans import Translator
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +22,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI/NLP Service")
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,6 +45,11 @@ OLLAMA_QA_MODEL = os.getenv("OLLAMA_QA_MODEL", "llama3.2")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.knowledge_navigator
 
+# Initialize Google Translator
+translator = Translator()
+
+
+
 class ProcessRequest(BaseModel):
     document_id: str
     file_path: str
@@ -58,6 +68,13 @@ class ModelConfig(BaseModel):
     embedding_model: str = None
     insight_model: str = None
     qa_model: str = None
+
+class LanguageDetectionRequest(BaseModel):
+    content: str
+
+class TranslationRequest(BaseModel):
+    text: str
+    target_languages: List[str]
 
 @app.post("/process")
 async def process_document(request: ProcessRequest):
@@ -139,6 +156,34 @@ async def generate_document_insights(request: dict):
         return {"insights": insights}
     except Exception as e:
         logger.error(f"Error generating insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/detect-language")
+async def detect_language(request: dict):
+    """Detect language of document content"""
+    logger.info(f"Detecting language for content length: {len(request.get('content', ''))}")
+    try:
+        content = request.get("content", "")
+        language = await detect_document_language(content)
+        logger.info(f"Detected language: {language}")
+        return {"language": language}
+    except Exception as e:
+        logger.error(f"Error detecting language: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/translate")
+async def translate_text(request: dict):
+    """Translate text to multiple languages"""
+    logger.info(f"Translating text to {len(request.get('target_languages', []))} languages")
+    try:
+        text = request.get("text", "")
+        target_languages = request.get("target_languages", [])
+        
+        translations = await translate_to_languages(text, target_languages)
+        logger.info(f"Generated {len(translations)} translations")
+        return {"translations": translations}
+    except Exception as e:
+        logger.error(f"Error translating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
@@ -236,21 +281,47 @@ async def get_relevant_context(question: str) -> str:
 
 async def generate_answer_with_context(question: str, context: str) -> str:
     """Generate answer using LLM with specific context"""
-    prompt = f"""
-    You are a helpful assistant that answers questions based on provided context.
+    # Detect if this is a creative task
+    creative_keywords = ['gợi ý', 'suggest', 'template', 'mẫu', 'đặt tên', 'name', 'tạo', 'create', 'viết', 'write', 'thiết kế', 'design', 'ý tưởng', 'idea']
+    is_creative = any(keyword in question.lower() for keyword in creative_keywords)
     
-    Question: {question}
-    
-    Context: {context}
-    
-    Instructions:
-    - Answer the question based only on the provided context
-    - If the context doesn't contain relevant information, say so
-    - Be concise and accurate
-    - Cite specific parts of the context when possible
-    
-    Answer:
-    """
+    if is_creative:
+        prompt = f"""
+        You are a creative assistant that generates content based on provided context.
+        
+        Question: {question}
+        
+        Context: {context}
+        
+        Instructions:
+        - Use the context as inspiration and reference material
+        - Generate creative, helpful content that addresses the request
+        - Be innovative while staying relevant to the context
+        - Provide practical, actionable suggestions
+        - Feel free to expand beyond the context when it helps fulfill the creative request
+        
+        Creative Response:
+        """
+        temperature = 0.9
+        top_p = 0.95
+    else:
+        prompt = f"""
+        You are a helpful assistant that answers questions based on provided context.
+        
+        Question: {question}
+        
+        Context: {context}
+        
+        Instructions:
+        - Answer the question based only on the provided context
+        - If the context doesn't contain relevant information, say so
+        - Be concise and accurate
+        - Cite specific parts of the context when possible
+        
+        Answer:
+        """
+        temperature = 0.7
+        top_p = 0.9
     
     async with aiohttp.ClientSession() as session:
         payload = {
@@ -258,8 +329,8 @@ async def generate_answer_with_context(question: str, context: str) -> str:
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": 0.7,
-                "top_p": 0.9
+                "temperature": temperature,
+                "top_p": top_p
             }
         }
         
@@ -291,6 +362,59 @@ async def generate_text_embedding(text: str) -> List[float]:
     except Exception as e:
         logger.error(f"Error generating embedding: {str(e)}")
         return [0.0] * 384
+
+async def detect_document_language(content: str) -> str:
+    """Detect language of document content using langdetect"""
+    try:
+        # Clean content for better detection
+        clean_content = content.replace('\n', ' ').strip()
+        if len(clean_content) < 10:
+            return "en"
+        
+        # Detect language
+        language_code = detect(clean_content)
+        logger.debug(f"Detected language: {language_code}")
+        
+        return language_code
+        
+    except LangDetectException as e:
+        logger.warning(f"Language detection failed: {str(e)}, defaulting to 'en'")
+        return "en"
+    except Exception as e:
+        logger.error(f"Error detecting language: {str(e)}")
+        return "en"
+
+async def translate_to_languages(text: str, target_languages: List[str]) -> Dict[str, str]:
+    """Translate text to multiple target languages using argos-translate"""
+    translations = {}
+    
+    for lang in target_languages:
+        try:
+            translation = translate_with_googletrans(text, lang)
+            translations[lang] = translation
+        except Exception as e:
+            logger.error(f"Error translating to {lang}: {str(e)}")
+            translations[lang] = text  # Fallback to original text
+    
+    return translations
+
+def translate_with_googletrans(text: str, target_language: str) -> str:
+    """Translate text using googletrans"""
+    try:
+        # Skip translation if text is too short
+        if len(text.strip()) < 3:
+            return text
+            
+        # Translate using googletrans
+        result = translator.translate(text, dest=target_language)
+        translated = result.text
+        
+        logger.debug(f"Translated from {result.src} to {target_language}")
+        return translated if translated else text
+        
+    except Exception as e:
+        logger.error(f"Google translation error: {str(e)}")
+        return text
 
 @app.get("/health")
 async def health_check():

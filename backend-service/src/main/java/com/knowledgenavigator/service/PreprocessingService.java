@@ -75,6 +75,12 @@ public class PreprocessingService {
             String content = textExtractionService.extractText(document.getFilePath(), document.getContentType());
             String cleanedContent = cleanText(content);
 
+            // Detect and store document language
+            String language = detectLanguage(cleanedContent);
+            document.setLanguage(language);
+            documentRepository.save(document);
+            logger.info("Detected language '{}' for document: {}", language, documentId);
+
             // Update status to chunking
             document.setProcessingStatus(ProcessingStatus.CHUNKING);
             documentRepository.save(document);
@@ -206,6 +212,26 @@ public class PreprocessingService {
                 chunk.getContent(),
                 chunk.getEmbedding()
             );
+        }
+    }
+
+    private String detectLanguage(String content) {
+        logger.debug("Detecting language for content length: {}", content.length());
+        try {
+            String sample = content.substring(0, Math.min(1000, content.length()));
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(aiServiceUrl + "/detect-language")
+                .bodyValue(Map.of("content", sample))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+            
+            String language = (String) response.get("language");
+            return language != null ? language : "en";
+        } catch (Exception e) {
+            logger.warn("Error detecting language, defaulting to 'en': {}", e.getMessage());
+            return "en";
         }
     }
 

@@ -1,5 +1,6 @@
 package com.knowledgenavigator.service;
 
+import com.knowledgenavigator.model.QASession;
 import com.knowledgenavigator.model.DocumentChunk;
 import com.knowledgenavigator.model.QASession;
 import com.knowledgenavigator.repository.DocumentChunkRepository;
@@ -201,17 +202,17 @@ public class QAService {
                   String context = chunks.stream()
                                            .map(DocumentChunk::getContent)
                                            .collect(Collectors.joining("\n\n"));
-                  
-                  Map<String, Object> response = webClientBuilder.build()
-                                                         .post()
-                                                         .uri(aiServiceUrl + "/qa")
-                                                         .bodyValue(Map.of(
-                                                                 "question", query,
-                                                                 "context", context
-                                                         ))
-                                                         .retrieve()
-                                                         .bodyToMono(Map.class)
-                                                         .block();
+                
+                Map<String, Object> response = webClientBuilder.build()
+                                                       .post()
+                                                       .uri(aiServiceUrl + "/qa")
+                                                       .bodyValue(Map.of(
+                                                               "question", query,
+                                                               "context", context
+                                                       ))
+                                                       .retrieve()
+                                                       .bodyToMono(Map.class)
+                                                       .block();
                   
                   return (String) response.get("answer");
             } catch (Exception e) {
