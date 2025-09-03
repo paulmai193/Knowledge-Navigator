@@ -453,7 +453,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
     """Expand query with AI-generated keywords and alternatives"""
     logger.debug(f"Expanding query: '{query}' (length: {len(query)})")
     prompt = f"""
-    Expand this search query to improve document retrieval. Detect if query is creative task or not. Generate related keywords and alternative phrasings.
+    Analyze this query and detect if it's a creative task (naming, suggesting, creating, designing, generating examples, templates, structures, functions, methods, patterns, solutions, etc.).
     
     Original Query: {query}
     
@@ -465,7 +465,14 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
         "expanded_query": "comprehensive expanded version"
     }}
     
-    Focus on:
+    If creative task (is_creative: true), focus on:
+    - Naming conventions and terminology
+    - Structural patterns and architectural concepts
+    - Implementation approaches and methodologies
+    - Examples, templates, and best practices
+    - Creative solutions and innovative techniques
+    
+    If informational task (is_creative: false), focus on:
     - Synonyms and related terms
     - Different ways to phrase the same question
     - Technical and common terminology
@@ -513,6 +520,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
                     return {
                         "keywords": words,
                         "alternatives": [query],
+                        "is_creative": False,
                         "expanded_query": query
                     }
     except Exception as e:
@@ -520,6 +528,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
         return {
             "keywords": query.split(),
             "alternatives": [query],
+            "is_creative": False,
             "expanded_query": query
         }
 
