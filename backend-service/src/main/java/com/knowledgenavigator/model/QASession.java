@@ -13,6 +13,7 @@ public class QASession {
     private String question;
     private String processedQuery;
     private List<String> keywords;
+    private Boolean isCreative;
     private List<Double> queryEmbedding;
     private List<String> foundDocuments;
     private String answer;
@@ -52,4 +53,10 @@ public class QASession {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Boolean getIsCreative() {
+        return isCreative;
+    }
+    public void setIsCreative(Boolean isCreative) {
+        this.isCreative = isCreative;
+    }
 }

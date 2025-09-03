@@ -76,6 +76,9 @@ class TranslationRequest(BaseModel):
     text: str
     target_languages: List[str]
 
+class QueryExpansionRequest(BaseModel):
+    query: str
+
 @app.post("/process")
 async def process_document(request: ProcessRequest):
     """Process document with AI analysis"""
@@ -112,10 +115,11 @@ async def answer_question(request: dict):
     try:
         question = request.get("question")
         context = request.get("context", "")
+        is_creative = request.get("is_creative", False)
         logger.debug(f"Question: {question[:100]}...")
         
         # Generate answer using LLM with provided context
-        answer = await generate_answer_with_context(question, context)
+        answer = await generate_answer_with_context(question, is_creative, context)
         
         # Log the Q&A interaction
         qa_record = {
@@ -186,6 +190,19 @@ async def translate_text(request: dict):
         logger.error(f"Error translating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/expand-query")
+async def expand_query(request: dict):
+    """Expand query with keywords and alternatives"""
+    logger.info(f"Expanding query: {request.get('query', '')[:50]}...")
+    try:
+        query = request.get("query", "")
+        expanded = await expand_query_with_ai(query)
+        logger.info(f"Generated {len(expanded.get('alternatives', []))} alternatives and {len(expanded.get('keywords', []))} keywords")
+        return expanded
+    except Exception as e:
+        logger.error(f"Error expanding query: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def extract_text_content(file_path: str, content_type: str) -> str:
     """Extract text from uploaded files"""
     try:
@@ -205,6 +222,7 @@ async def extract_text_content(file_path: str, content_type: str) -> str:
 
 async def generate_insights(content: str) -> List[Dict[str, Any]]:
     """Generate insights using LLM"""
+    logger.debug(f"Generating insights for content length: {len(content)}")
     prompt = f"""
     Analyze this document and extract key insights. Return JSON format:
     {{
@@ -221,6 +239,7 @@ async def generate_insights(content: str) -> List[Dict[str, Any]]:
     Document: {content[:4000]}
     """
     
+    logger.debug(f"Calling Ollama with model: {OLLAMA_INSIGHT_MODEL}")
     async with aiohttp.ClientSession() as session:
         payload = {
             "model": OLLAMA_INSIGHT_MODEL,
@@ -229,16 +248,22 @@ async def generate_insights(content: str) -> List[Dict[str, Any]]:
         }
         
         async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+            logger.debug(f"Ollama insights response status: {resp.status}")
             result = await resp.json()
             response = result.get("response", "")
+            logger.debug(f"Raw Ollama response length: {len(response)}")
             
             try:
                 json_start = response.find('{')
                 json_end = response.rfind('}') + 1
                 json_str = response[json_start:json_end]
+                logger.debug(f"Extracted JSON: {json_str[:200]}...")
                 parsed = json.loads(json_str)
-                return parsed.get("insights", [])
-            except:
+                insights = parsed.get("insights", [])
+                logger.info(f"Successfully parsed {len(insights)} insights")
+                return insights
+            except Exception as e:
+                logger.warning(f"Failed to parse JSON insights: {str(e)}, using fallback")
                 return [{
                     "title": "AI Analysis",
                     "content": response,
@@ -279,11 +304,12 @@ async def get_relevant_context(question: str) -> str:
     
     return "\n".join(insights)
 
-async def generate_answer_with_context(question: str, context: str) -> str:
+async def generate_answer_with_context(question: str, is_creative: bool, context: str) -> str:
     """Generate answer using LLM with specific context"""
+    logger.debug(f"Generating answer for question length: {len(question)}, context length: {len(context)}")
+    
     # Detect if this is a creative task
-    creative_keywords = ['gợi ý', 'suggest', 'template', 'mẫu', 'đặt tên', 'name', 'tạo', 'create', 'viết', 'write', 'thiết kế', 'design', 'ý tưởng', 'idea']
-    is_creative = any(keyword in question.lower() for keyword in creative_keywords)
+    logger.debug(f"Creative task detected: {is_creative}")
     
     if is_creative:
         prompt = f"""
@@ -323,6 +349,7 @@ async def generate_answer_with_context(question: str, context: str) -> str:
         temperature = 0.7
         top_p = 0.9
     
+    logger.debug(f"Using model: {OLLAMA_QA_MODEL}, temperature: {temperature}, top_p: {top_p}")
     async with aiohttp.ClientSession() as session:
         payload = {
             "model": OLLAMA_QA_MODEL,
@@ -335,8 +362,11 @@ async def generate_answer_with_context(question: str, context: str) -> str:
         }
         
         async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+            logger.debug(f"Ollama Q&A response status: {resp.status}")
             result = await resp.json()
-            return result.get("response", "Unable to generate answer")
+            answer = result.get("response", "Unable to generate answer")
+            logger.debug(f"Generated answer length: {len(answer)}")
+            return answer
 
 async def generate_text_embedding(text: str) -> List[float]:
     """Generate text embeddings using Ollama"""
@@ -400,21 +430,98 @@ async def translate_to_languages(text: str, target_languages: List[str]) -> Dict
 
 def translate_with_googletrans(text: str, target_language: str) -> str:
     """Translate text using googletrans"""
+    logger.debug(f"Translating text (length: {len(text)}) to {target_language}")
     try:
         # Skip translation if text is too short
         if len(text.strip()) < 3:
+            logger.debug("Text too short, skipping translation")
             return text
             
         # Translate using googletrans
+        logger.debug(f"Calling Google Translate API for {target_language}")
         result = translator.translate(text, dest=target_language)
         translated = result.text
         
-        logger.debug(f"Translated from {result.src} to {target_language}")
+        logger.debug(f"Successfully translated from {result.src} to {target_language} (length: {len(translated)})")
         return translated if translated else text
         
     except Exception as e:
-        logger.error(f"Google translation error: {str(e)}")
+        logger.error(f"Google translation error for {target_language}: {str(e)}")
         return text
+
+async def expand_query_with_ai(query: str) -> Dict[str, Any]:
+    """Expand query with AI-generated keywords and alternatives"""
+    logger.debug(f"Expanding query: '{query}' (length: {len(query)})")
+    prompt = f"""
+    Expand this search query to improve document retrieval. Detect if query is creative task or not. Generate related keywords and alternative phrasings.
+    
+    Original Query: {query}
+    
+    Return JSON format without any explanation or extra text:
+    {{
+        "keywords": ["keyword1", "keyword2", "keyword3"],
+        "alternatives": ["alternative query 1", "alternative query 2"],
+        "is_creative": true|false,
+        "expanded_query": "comprehensive expanded version"
+    }}
+    
+    Focus on:
+    - Synonyms and related terms
+    - Different ways to phrase the same question
+    - Technical and common terminology
+    - Broader and narrower concepts
+    """
+    
+    try:
+        logger.debug(f"Calling Ollama for query expansion with model: {OLLAMA_QA_MODEL}")
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": OLLAMA_QA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.8,
+                    "top_p": 0.9
+                }
+            }
+            
+            async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+                logger.debug(f"Ollama expansion response status: {resp.status}")
+                result = await resp.json()
+                response = result.get("response", "")
+                logger.debug(f"Raw expansion response length: {len(response)}")
+                
+                try:
+                    json_start = response.find('{')
+                    json_end = response.rfind('}') + 1
+                    json_str = response[json_start:json_end]
+                    logger.debug(f"Extracted expansion JSON: {json_str}")
+                    parsed = json.loads(json_str)
+                    
+                    result_data = {
+                        "keywords": parsed.get("keywords", []),
+                        "alternatives": parsed.get("alternatives", []),
+                        "is_creative": parsed.get("is_creative", False),
+                        "expanded_query": parsed.get("expanded_query", query)
+                    }
+                    logger.info(f"Successfully expanded query: {len(result_data['keywords'])} keywords, {len(result_data['alternatives'])} alternatives")
+                    return result_data
+                except Exception as parse_error:
+                    logger.warning(f"Failed to parse expansion JSON: {str(parse_error)}, using fallback")
+                    # Fallback: extract keywords from response
+                    words = query.split()
+                    return {
+                        "keywords": words,
+                        "alternatives": [query],
+                        "expanded_query": query
+                    }
+    except Exception as e:
+        logger.error(f"Error expanding query '{query}': {str(e)}")
+        return {
+            "keywords": query.split(),
+            "alternatives": [query],
+            "expanded_query": query
+        }
 
 @app.get("/health")
 async def health_check():
