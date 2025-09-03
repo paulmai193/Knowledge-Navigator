@@ -197,7 +197,7 @@ async def expand_query(request: dict):
     try:
         query = request.get("query", "")
         expanded = await expand_query_with_ai(query)
-        logger.info(f"Generated {len(expanded.get('alternatives', []))} alternatives and {len(expanded.get('keywords', []))} keywords")
+        logger.info(f"Generated rephrased query and {len(expanded.get('keywords', []))} keywords")
         return expanded
     except Exception as e:
         logger.error(f"Error expanding query: {str(e)}")
@@ -460,7 +460,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
     Return JSON format without any explanation or extra text:
     {{
         "keywords": ["keyword1", "keyword2", "keyword3"],
-        "alternatives": ["alternative query 1", "alternative query 2"],
+        "rephrased_query": "single rephrased version of the question",
         "is_creative": true|false,
         "expanded_query": "comprehensive expanded version"
     }}
@@ -507,11 +507,11 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
                     
                     result_data = {
                         "keywords": parsed.get("keywords", []),
-                        "alternatives": parsed.get("alternatives", []),
+                        "rephrased_query": parsed.get("rephrased_query", query),
                         "is_creative": parsed.get("is_creative", False),
                         "expanded_query": parsed.get("expanded_query", query)
                     }
-                    logger.info(f"Successfully expanded query: {len(result_data['keywords'])} keywords, {len(result_data['alternatives'])} alternatives")
+                    logger.info(f"Successfully expanded query: {len(result_data['keywords'])} keywords, {len(result_data['rephrased_query'])} rephrased_query")
                     return result_data
                 except Exception as parse_error:
                     logger.warning(f"Failed to parse expansion JSON: {str(parse_error)}, using fallback")
@@ -519,7 +519,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
                     words = query.split()
                     return {
                         "keywords": words,
-                        "alternatives": [query],
+                        "rephrased_query": query,
                         "is_creative": False,
                         "expanded_query": query
                     }
@@ -527,7 +527,7 @@ async def expand_query_with_ai(query: str) -> Dict[str, Any]:
         logger.error(f"Error expanding query '{query}': {str(e)}")
         return {
             "keywords": query.split(),
-            "alternatives": [query],
+            "rephrased_query": query,
             "is_creative": False,
             "expanded_query": query
         }
