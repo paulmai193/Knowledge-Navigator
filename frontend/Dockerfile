@@ -6,12 +6,15 @@ WORKDIR /app
 # Copy package files for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Update lock file and install dependencies
+RUN npm install --package-lock-only && npm ci
 
 # Copy source and build
 COPY . .
 RUN npm run build
+
+# Clean up node_modules to reduce image size
+RUN rm -rf node_modules
 
 # Production stage
 FROM public.ecr.aws/nginx/nginx:1.25-alpine
