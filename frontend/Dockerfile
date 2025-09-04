@@ -1,24 +1,26 @@
-FROM public.ecr.aws/docker/library/node:18-alpine
+# Build stage
+FROM public.ecr.aws/docker/library/node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock* package-lock.json* ./
+# Copy package files for better caching
+COPY package*.json ./
 
-# Clear npm cache and install dependencies
-RUN npm cache clean --force
-RUN rm -rf node_modules package-lock.json yarn.lock
-RUN npm install
+# Install dependencies
+RUN npm ci --only=production
 
-# Install serve globally
-RUN npm install -g serve
-
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Serve the application
-EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Production stage
+FROM public.ecr.aws/nginx/nginx:1.25-alpine
+
+# Copy built app
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
