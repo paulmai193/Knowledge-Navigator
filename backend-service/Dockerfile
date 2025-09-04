@@ -1,29 +1,30 @@
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17 AS build
 
-# Install Gradle
-RUN yum update -y && yum install -y wget unzip
-RUN wget https://services.gradle.org/distributions/gradle-8.5-bin.zip
-RUN unzip gradle-8.5-bin.zip && mv gradle-8.5 /opt/gradle
-ENV PATH="/opt/gradle/bin:${PATH}"
-
 WORKDIR /app
 
-# Copy build file
-COPY build.gradle .
+# Copy Gradle wrapper and build files for better caching
+COPY gradle gradle
+COPY gradlew build.gradle settings.gradle ./
 
-# Copy source code
+# Download dependencies (cached layer)
+RUN ./gradlew dependencies --no-daemon
+
+# Copy source and build
 COPY src src
+RUN ./gradlew build --no-daemon -x test
 
-# Build the application
-RUN gradle clean build --no-daemon
-
-# Runtime stage
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:17
+# Runtime stage with JRE-only image
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-headless
 
 WORKDIR /app
 
-COPY --from=build /app/build/libs/backend-service-1.0.0.jar app.jar
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
+COPY --from=build /app/build/libs/*.jar app.jar
+RUN chown appuser:appuser app.jar
+
+USER appuser
 EXPOSE 8001
 
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
