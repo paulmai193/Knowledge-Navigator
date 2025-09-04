@@ -7,6 +7,7 @@ import com.knowledgenavigator.repository.DocumentChunkRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public class QAService {
         logger.debug("Question: {}", question);
         try {
             // Check user permissions
-            if (userId != null && !userId.isEmpty()) {
+            if (StringUtils.hasText(userId) == false) {
                 logger.warn("Permission denied for user: {}", userId);
                 return Map.of("error", "Insufficient permissions", "status", "PERMISSION_DENIED");
             }
@@ -164,7 +165,7 @@ public class QAService {
         
         // Implement document-level access control
         // For now, allow access to all documents for authenticated users
-        if (userId != null && !userId.isEmpty()){
+        if (StringUtils.hasText(userId) == false) {
             return new ArrayList<>();
         }
         
