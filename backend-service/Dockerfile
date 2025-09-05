@@ -1,29 +1,38 @@
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17 AS build
 
-# Install Gradle
-RUN yum update -y && yum install -y wget unzip
-RUN wget https://services.gradle.org/distributions/gradle-8.5-bin.zip
-RUN unzip gradle-8.5-bin.zip && mv gradle-8.5 /opt/gradle
-ENV PATH="/opt/gradle/bin:${PATH}"
-
 WORKDIR /app
 
-# Copy build file
-COPY build.gradle .
+# Copy Gradle wrapper and build files for better caching
+COPY gradle gradle
+COPY gradlew build.gradle settings.gradle ./
 
-# Copy source code
+# Download dependencies (cached layer)
+RUN ./gradlew dependencies --no-daemon
+
+# Copy source and build
 COPY src src
+RUN ./gradlew build --no-daemon -x test
 
-# Build the application
-RUN gradle clean build --no-daemon
-
-# Runtime stage
-FROM public.ecr.aws/amazoncorretto/amazoncorretto:17
+# Runtime stage with JRE-only image
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2-native-headless
 
 WORKDIR /app
 
-COPY --from=build /app/build/libs/backend-service-1.0.0.jar app.jar
+# Create group and user (both id 10001) without installing packages
+# /etc/group: name:passwd:GID:
+# /etc/passwd: name:passwd:UID:GID:GECOS:home:shell
+RUN echo 'appuser:x:10001:' >> /etc/group \
+ && echo 'appuser:x:10001:10001:App User:/home/appuser:/sbin/nologin' >> /etc/passwd \
+ && mkdir -p /home/appuser \
+ && chown -R 10001:10001 /home/appuser
+
+# Copy the jar and set ownership in one layer
+COPY --chown=10001:10001 --from=build /app/build/libs/*.jar /app/app.jar
+
+# Drop privileges
+USER appuser
+ENV HOME=/home/appuser
 
 EXPOSE 8001
 
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

@@ -49,9 +49,7 @@ public class AuthorizationService {
         
         // Admin can access all documents
         if (user.getRole().name().equals("ADMIN")) {
-            return groupRepository.findAll().stream()
-                           .flatMap(group -> group.getDocumentIds().stream())
-                           .distinct()
+            return documentRepository.findAll().stream().map(doc -> doc.getId())
                            .toList();
         }
         
