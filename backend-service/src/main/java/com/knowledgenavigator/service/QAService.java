@@ -143,11 +143,11 @@ public class QAService {
                    .trim();
     }
 
-    private List<String> extractKeywords(String query) {
-        return Arrays.stream(query.split("\\s+"))
-                    .filter(word -> word.length() > 2)
-                    .collect(Collectors.toList());
-    }
+    // private List<String> extractKeywords(String query) {
+    //     return Arrays.stream(query.split("\\s+"))
+    //                 .filter(word -> word.length() > 2)
+    //                 .collect(Collectors.toList());
+    // }
 
     private List<Double> createQueryEmbedding(String query) {
         try {
@@ -249,22 +249,22 @@ public class QAService {
         }
     }
 
-    private Map<String, Object> expandQueryWithAI(String query) {
-        try {
-            Map<String, Object> response = webClientBuilder.build()
-                .post()
-                .uri(aiServiceUrl + "/expand-query")
-                .bodyValue(Map.of("query", query))
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
+    // private Map<String, Object> expandQueryWithAI(String query) {
+    //     try {
+    //         Map<String, Object> response = webClientBuilder.build()
+    //             .post()
+    //             .uri(aiServiceUrl + "/expand-query")
+    //             .bodyValue(Map.of("query", query))
+    //             .retrieve()
+    //             .bodyToMono(Map.class)
+    //             .block();
             
-            return response != null ? response : Map.of("expanded_query", query);
-        } catch (Exception e) {
-            logger.error("Error expanding query: {}", e.getMessage());
-            return Map.of("expanded_query", query, "keywords", extractKeywords(query), "alternatives", Arrays.asList(query));
-        }
-    }
+    //         return response != null ? response : Map.of("expanded_query", query);
+    //     } catch (Exception e) {
+    //         logger.error("Error expanding query: {}", e.getMessage());
+    //         return Map.of("expanded_query", query, "keywords", extractKeywords(query), "alternatives", Arrays.asList(query));
+    //     }
+    // }
 
     private List<String> findDocumentsWithProcessedQueries(List<String> queries, List<String> languages) {
         for (String query : queries) {
