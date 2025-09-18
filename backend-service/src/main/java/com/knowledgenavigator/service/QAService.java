@@ -7,6 +7,7 @@ import com.knowledgenavigator.repository.DocumentChunkRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +25,7 @@ public class QAService {
 
     @Autowired
     private DocumentChunkRepository chunkRepository;
-
-    @Autowired
-    private SecurityService securityService;
-
+    
     @Autowired
     private VectorSearchService vectorSearchService;
     
@@ -36,6 +34,9 @@ public class QAService {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+    
+    @Autowired
+    private com.knowledgenavigator.repository.DocumentRepository documentRepository;
 
     @Value("${ai.service.url:http://localhost:8002}")
     private String aiServiceUrl;
@@ -54,7 +55,7 @@ public class QAService {
         logger.debug("Question: {}", question);
         try {
             // Check user permissions
-            if (!securityService.checkUserPermission(userId)) {
+            if (StringUtils.hasText(userId) == false) {
                 logger.warn("Permission denied for user: {}", userId);
                 return Map.of("error", "Insufficient permissions", "status", "PERMISSION_DENIED");
             }
@@ -67,21 +68,23 @@ public class QAService {
             session.setCreatedDate(LocalDateTime.now());
             session.setStatus("PROCESSING");
 
-            // Preprocess query
-            String processedQuery = preprocessQuery(question);
-            List<String> keywords = extractKeywords(processedQuery);
+            // Expand query with AI
+            Map<String, Object> expandedQuery = expandQueryWithAI(question);
+            String processedQuery = (String) expandedQuery.getOrDefault("expanded_query", preprocessQuery(question));
+            List<String> keywords = (List<String>) expandedQuery.getOrDefault("keywords", extractKeywords(processedQuery));
+            Boolean isCreative = (Boolean) expandedQuery.getOrDefault("is_creative", false);
+            List<String> alternatives = (List<String>) expandedQuery.getOrDefault("alternatives", Arrays.asList(question));
+            
             session.setProcessedQuery(processedQuery);
             session.setKeywords(keywords);
+            session.setIsCreative(isCreative);
+            logger.info("Expanded query with {} keywords and {} alternatives", keywords.size(), alternatives.size());
 
-            // Create embedding for query
-            List<Double> queryEmbedding = createQueryEmbedding(processedQuery);
-            session.setQueryEmbedding(queryEmbedding);
-
-            // Find related documents using vector search
-            logger.debug("Searching for related documents with embedding size: {}", queryEmbedding.size());
-            List<String> foundDocuments = vectorSearchService.findRelatedDocuments(queryEmbedding);
+            // Get all document languages and search iteratively with expanded queries
+            List<String> documentLanguages = getDocumentLanguages();
+            List<String> foundDocuments = findDocumentsWithExpandedQueries(alternatives, documentLanguages);
             session.setFoundDocuments(foundDocuments);
-            logger.info("Found {} related documents", foundDocuments.size());
+            logger.info("Found {} related documents across {} languages", foundDocuments.size(), documentLanguages.size());
 
             if (foundDocuments.isEmpty()) {
                 logger.warn("No documents found for query: {}", processedQuery);
@@ -104,7 +107,7 @@ public class QAService {
             }
 
             // Summarize answer using LLM
-            String answer = summarizeAnswer(processedQuery, accessibleChunks);
+            String answer = summarizeAnswer(processedQuery, isCreative, accessibleChunks);
             List<String> sources = extractSources(accessibleChunks);
 
             session.setAnswer(answer);
@@ -160,30 +163,34 @@ public class QAService {
         List<DocumentChunk> selectedChunks = new ArrayList<>();
         int totalLength = 0;
         
+        // Implement document-level access control
+        // For now, allow access to all documents for authenticated users
+        if (StringUtils.hasText(userId) == false) {
+            return new ArrayList<>();
+        }
+        
+        List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
         for (String docId : documentIds) {
-            if (!this.checkDocumentAccess(userId, docId)) {
-                continue;
-            }
-            
-            // Get limited chunks per document at database level
-            List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
-            
-            for (DocumentChunk chunk : docChunks) {
+            if (accessibleDocIds.contains(docId)) {
+                // Get limited chunks per document at database level
+                List<DocumentChunk> docChunks = chunkRepository.findTopByDocumentIdOrderByChunkIndex(docId, chunksPerDocument);
+                for (DocumentChunk chunk : docChunks) {
+                    if (selectedChunks.size() >= maxChunks) {
+                        break;
+                    }
+                    
+                    int chunkLength = chunk.getContent().length();
+                    if (totalLength + chunkLength > maxContextLength) {
+                        break;
+                    }
+                    
+                    selectedChunks.add(chunk);
+                    totalLength += chunkLength;
+                }
+                
                 if (selectedChunks.size() >= maxChunks) {
                     break;
                 }
-                
-                int chunkLength = chunk.getContent().length();
-                if (totalLength + chunkLength > maxContextLength) {
-                    break;
-                }
-                
-                selectedChunks.add(chunk);
-                totalLength += chunkLength;
-            }
-            
-            if (selectedChunks.size() >= maxChunks) {
-                break;
             }
         }
         
@@ -192,12 +199,14 @@ public class QAService {
     
     public boolean checkDocumentAccess(String userId, String documentId) {
         List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(userId);
+        logger.debug("Found {} of accessible Doc", accessibleDocIds);
         // Implement document-level access control
         // For now, allow access to all documents for authenticated users
+        logger.debug("Checking access for user {} to document {}", userId, documentId);
         return userId != null && !userId.isEmpty() && accessibleDocIds.contains(documentId);
     }
 
-    private String summarizeAnswer(String query, List<DocumentChunk> chunks) {
+    private String summarizeAnswer(String query, Boolean isCreative, List<DocumentChunk> chunks) {
         try {
             String context = chunks.stream()
                 .map(DocumentChunk::getContent)
@@ -208,6 +217,7 @@ public class QAService {
                 .uri(aiServiceUrl + "/qa")
                 .bodyValue(Map.of(
                     "question", query,
+                    "is_creative", isCreative,
                     "context", context
                 ))
                 .retrieve()
@@ -217,6 +227,78 @@ public class QAService {
             return (String) response.get("answer");
         } catch (Exception e) {
             return "Unable to generate answer";
+        }
+    }
+
+    private List<String> getDocumentLanguages() {
+        try {
+            return documentRepository.findAll().stream()
+                .map(doc -> doc.getLanguage())
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error getting document languages: {}", e.getMessage());
+            return Arrays.asList("en");
+        }
+    }
+
+    private Map<String, Object> expandQueryWithAI(String query) {
+        try {
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(aiServiceUrl + "/expand-query")
+                .bodyValue(Map.of("query", query))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+            
+            return response != null ? response : Map.of("expanded_query", query);
+        } catch (Exception e) {
+            logger.error("Error expanding query: {}", e.getMessage());
+            return Map.of("expanded_query", query, "keywords", extractKeywords(query), "alternatives", Arrays.asList(query));
+        }
+    }
+
+    private List<String> findDocumentsWithExpandedQueries(List<String> queries, List<String> languages) {
+        for (String query : queries) {
+            for (String language : languages) {
+                try {
+                    logger.debug("Searching query '{}' in language: {}", query, language);
+                    String translatedQuery = translateToLanguage(query, language);
+                    List<Double> queryEmbedding = createQueryEmbedding(translatedQuery);
+                    List<String> documents = vectorSearchService.findRelatedDocuments(queryEmbedding);
+                    
+                    if (!documents.isEmpty()) {
+                        logger.info("Found {} documents for query '{}' in language: {}", documents.size(), query, language);
+                        return documents;
+                    }
+                } catch (Exception e) {
+                    logger.error("Error searching query '{}' in language {}: {}", query, language, e.getMessage());
+                }
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    private String translateToLanguage(String query, String targetLanguage) {
+        try {
+            Map<String, Object> response = webClientBuilder.build()
+                .post()
+                .uri(aiServiceUrl + "/translate")
+                .bodyValue(Map.of(
+                    "text", query,
+                    "target_languages", Arrays.asList(targetLanguage)
+                ))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+            
+            Map<String, String> translations = (Map<String, String>) response.get("translations");
+            return translations.getOrDefault(targetLanguage, query);
+        } catch (Exception e) {
+            logger.error("Error translating to {}: {}", targetLanguage, e.getMessage());
+            return query;
         }
     }
 

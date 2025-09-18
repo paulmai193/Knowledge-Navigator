@@ -10,32 +10,32 @@ import java.util.Map;
 
 @Service
 public class DocumentService {
-
+    
     @Autowired
     private DocumentRepository documentRepository;
-
+    
     @Autowired
     private DataIngestionService dataIngestionService;
-
+    
     @Autowired
     private AuthorizationService authorizationService;
-
+    
     public Map<String, Object> uploadDocument(MultipartFile file, String username) {
         return dataIngestionService.ingestDocument(file, username);
     }
-
+    
     public List<DocumentEntity> getAllDocuments() {
         return documentRepository.findAll();
     }
-
+    
     public DocumentEntity getDocumentById(String id) {
         return documentRepository.findById(id).orElse(null);
     }
-
+    
     public List<DocumentEntity> getAccessibleDocuments(String username) {
         List<String> accessibleDocIds = authorizationService.getAccessibleDocuments(username);
         return documentRepository.findAllById(accessibleDocIds).stream()
-            .filter(doc -> doc.isProcessed())
-            .collect(java.util.stream.Collectors.toList());
+                       .filter(doc -> doc.isProcessed())
+                       .collect(java.util.stream.Collectors.toList());
     }
 }
