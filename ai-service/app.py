@@ -190,18 +190,18 @@ async def translate_text(request: dict):
         logger.error(f"Error translating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/expand-query")
-async def expand_query(request: dict):
-    """Expand query with keywords and alternatives"""
-    logger.info(f"Expanding query: {request.get('query', '')[:50]}...")
-    try:
-        query = request.get("query", "")
-        expanded = await expand_query_with_ai(query)
-        logger.info(f"Generated rephrased query and {len(expanded.get('keywords', []))} keywords")
-        return expanded
-    except Exception as e:
-        logger.error(f"Error expanding query: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.post("/expand-query")
+# async def expand_query(request: dict):
+#     """Expand query with keywords and alternatives"""
+#     logger.info(f"Expanding query: {request.get('query', '')[:50]}...")
+#     try:
+#         query = request.get("query", "")
+#         expanded = await expand_query_with_ai(query)
+#         logger.info(f"Generated rephrased query and {len(expanded.get('keywords', []))} keywords")
+#         return expanded
+#     except Exception as e:
+#         logger.error(f"Error expanding query: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 async def extract_text_content(file_path: str, content_type: str) -> str:
     """Extract text from uploaded files"""
@@ -348,7 +348,7 @@ async def generate_answer_with_context(question: str, is_creative: bool, context
         """
         temperature = 0.7
         top_p = 0.9
-    
+
     logger.debug(f"Using model: {OLLAMA_QA_MODEL}, temperature: {temperature}, top_p: {top_p}")
     async with aiohttp.ClientSession() as session:
         payload = {
@@ -449,88 +449,88 @@ def translate_with_googletrans(text: str, target_language: str) -> str:
         logger.error(f"Google translation error for {target_language}: {str(e)}")
         return text
 
-async def expand_query_with_ai(query: str) -> Dict[str, Any]:
-    """Expand query with AI-generated keywords and alternatives"""
-    logger.debug(f"Expanding query: '{query}' (length: {len(query)})")
-    prompt = f"""
-    Analyze this query and detect if it's a creative task (naming, suggesting, creating, designing, generating examples, templates, structures, functions, methods, patterns, solutions, etc.).
+# async def expand_query_with_ai(query: str) -> Dict[str, Any]:
+#     """Expand query with AI-generated keywords and alternatives"""
+#     logger.debug(f"Expanding query: '{query}' (length: {len(query)})")
+#     prompt = f"""
+#     Analyze this query and detect if it's a creative task (naming, suggesting, creating, designing, generating examples, templates, structures, functions, methods, patterns, solutions, etc.).
     
-    Original Query: {query}
+#     Original Query: {query}
     
-    Return JSON format without any explanation or extra text:
-    {{
-        "keywords": ["keyword1", "keyword2", "keyword3"],
-        "rephrased_query": "single rephrased version of the question",
-        "is_creative": true|false,
-        "expanded_query": "comprehensive expanded version"
-    }}
+#     Return JSON format without any explanation or extra text:
+#     {{
+#         "keywords": ["keyword1", "keyword2", "keyword3"],
+#         "rephrased_query": "single rephrased version of the question",
+#         "is_creative": true|false,
+#         "expanded_query": "comprehensive expanded version"
+#     }}
     
-    If creative task (is_creative: true), focus on:
-    - Naming conventions and terminology
-    - Structural patterns and architectural concepts
-    - Implementation approaches and methodologies
-    - Examples, templates, and best practices
-    - Creative solutions and innovative techniques
+#     If creative task (is_creative: true), focus on:
+#     - Naming conventions and terminology
+#     - Structural patterns and architectural concepts
+#     - Implementation approaches and methodologies
+#     - Examples, templates, and best practices
+#     - Creative solutions and innovative techniques
     
-    If informational task (is_creative: false), focus on:
-    - Synonyms and related terms
-    - Different ways to phrase the same question
-    - Technical and common terminology
-    - Broader and narrower concepts
-    """
+#     If informational task (is_creative: false), focus on:
+#     - Synonyms and related terms
+#     - Different ways to phrase the same question
+#     - Technical and common terminology
+#     - Broader and narrower concepts
+#     """
     
-    try:
-        logger.debug(f"Calling Ollama for query expansion with model: {OLLAMA_QA_MODEL}")
-        async with aiohttp.ClientSession() as session:
-            payload = {
-                "model": OLLAMA_QA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.8,
-                    "top_p": 0.9
-                }
-            }
+#     try:
+#         logger.debug(f"Calling Ollama for query expansion with model: {OLLAMA_QA_MODEL}")
+#         async with aiohttp.ClientSession() as session:
+#             payload = {
+#                 "model": OLLAMA_QA_MODEL,
+#                 "prompt": prompt,
+#                 "stream": False,
+#                 "options": {
+#                     "temperature": 0.8,
+#                     "top_p": 0.9
+#                 }
+#             }
             
-            async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
-                logger.debug(f"Ollama expansion response status: {resp.status}")
-                result = await resp.json()
-                response = result.get("response", "")
-                logger.debug(f"Raw expansion response length: {len(response)}")
+#             async with session.post(f"{OLLAMA_URL}/api/generate", json=payload) as resp:
+#                 logger.debug(f"Ollama expansion response status: {resp.status}")
+#                 result = await resp.json()
+#                 response = result.get("response", "")
+#                 logger.debug(f"Raw expansion response length: {len(response)}")
                 
-                try:
-                    json_start = response.find('{')
-                    json_end = response.rfind('}') + 1
-                    json_str = response[json_start:json_end]
-                    logger.debug(f"Extracted expansion JSON: {json_str}")
-                    parsed = json.loads(json_str)
+#                 try:
+#                     json_start = response.find('{')
+#                     json_end = response.rfind('}') + 1
+#                     json_str = response[json_start:json_end]
+#                     logger.debug(f"Extracted expansion JSON: {json_str}")
+#                     parsed = json.loads(json_str)
                     
-                    result_data = {
-                        "keywords": parsed.get("keywords", []),
-                        "rephrased_query": parsed.get("rephrased_query", query),
-                        "is_creative": parsed.get("is_creative", False),
-                        "expanded_query": parsed.get("expanded_query", query)
-                    }
-                    logger.info(f"Successfully expanded query: {len(result_data['keywords'])} keywords, {len(result_data['rephrased_query'])} rephrased_query")
-                    return result_data
-                except Exception as parse_error:
-                    logger.warning(f"Failed to parse expansion JSON: {str(parse_error)}, using fallback")
-                    # Fallback: extract keywords from response
-                    words = query.split()
-                    return {
-                        "keywords": words,
-                        "rephrased_query": query,
-                        "is_creative": False,
-                        "expanded_query": query
-                    }
-    except Exception as e:
-        logger.error(f"Error expanding query '{query}': {str(e)}")
-        return {
-            "keywords": query.split(),
-            "rephrased_query": query,
-            "is_creative": False,
-            "expanded_query": query
-        }
+#                     result_data = {
+#                         "keywords": parsed.get("keywords", []),
+#                         "rephrased_query": parsed.get("rephrased_query", query),
+#                         "is_creative": parsed.get("is_creative", False),
+#                         "expanded_query": parsed.get("expanded_query", query)
+#                     }
+#                     logger.info(f"Successfully expanded query: {len(result_data['keywords'])} keywords, {len(result_data['rephrased_query'])} rephrased_query")
+#                     return result_data
+#                 except Exception as parse_error:
+#                     logger.warning(f"Failed to parse expansion JSON: {str(parse_error)}, using fallback")
+#                     # Fallback: extract keywords from response
+#                     words = query.split()
+#                     return {
+#                         "keywords": words,
+#                         "rephrased_query": query,
+#                         "is_creative": False,
+#                         "expanded_query": query
+#                     }
+#     except Exception as e:
+#         logger.error(f"Error expanding query '{query}': {str(e)}")
+#         return {
+#             "keywords": query.split(),
+#             "rephrased_query": query,
+#             "is_creative": False,
+#             "expanded_query": query
+#         }
 
 @app.get("/health")
 async def health_check():

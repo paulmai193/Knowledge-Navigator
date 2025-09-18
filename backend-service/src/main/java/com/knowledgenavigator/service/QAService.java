@@ -50,6 +50,9 @@ public class QAService {
     @Value("${qa.chunks.per.document:3}")
     private int chunksPerDocument;
 
+    @Value("${qa.default.is_creative:true}")
+    private Boolean isCreative;
+
     public Map<String, Object> processQuestion(String userId, String question) {
         logger.info("Processing Q&A question for user: {}", userId);
         logger.debug("Question: {}", question);
@@ -69,20 +72,23 @@ public class QAService {
             session.setStatus("PROCESSING");
 
             // Expand query with AI
-            Map<String, Object> expandedQuery = expandQueryWithAI(question);
-            String processedQuery = (String) expandedQuery.getOrDefault("expanded_query", preprocessQuery(question));
-            List<String> keywords = (List<String>) expandedQuery.getOrDefault("keywords", extractKeywords(processedQuery));
-            Boolean isCreative = (Boolean) expandedQuery.getOrDefault("is_creative", false);
-            List<String> alternatives = (List<String>) expandedQuery.getOrDefault("alternatives", Arrays.asList(question));
+            // Map<String, Object> expandedQuery = expandQueryWithAI(question);
+            // String processedQuery = (String) expandedQuery.getOrDefault("expanded_query", preprocessQuery(question));
+            // List<String> keywords = (List<String>) expandedQuery.getOrDefault("keywords", extractKeywords(processedQuery));
+            // Boolean isCreative = (Boolean) expandedQuery.getOrDefault("is_creative", false);
+            // List<String> alternatives = (List<String>) expandedQuery.getOrDefault("alternatives", Arrays.asList(question));
             
-            session.setProcessedQuery(processedQuery);
-            session.setKeywords(keywords);
-            session.setIsCreative(isCreative);
-            logger.info("Expanded query with {} keywords and {} alternatives", keywords.size(), alternatives.size());
+            // session.setProcessedQuery(processedQuery);
+            // session.setKeywords(keywords);
+            // session.setIsCreative(isCreative);
+            // logger.info("Expanded query with {} keywords and {} alternatives", keywords.size(), alternatives.size());
 
-            // Get all document languages and search iteratively with expanded queries
+            // Preprocess query
+            String processedQuery = preprocessQuery(question);
+
+            // Get all document languages and search iteratively with processed queries
             List<String> documentLanguages = getDocumentLanguages();
-            List<String> foundDocuments = findDocumentsWithExpandedQueries(alternatives, documentLanguages);
+            List<String> foundDocuments = findDocumentsWithProcessedQueries(Collections.singletonList(processedQuery), documentLanguages);
             session.setFoundDocuments(foundDocuments);
             logger.info("Found {} related documents across {} languages", foundDocuments.size(), documentLanguages.size());
 
@@ -260,7 +266,7 @@ public class QAService {
         }
     }
 
-    private List<String> findDocumentsWithExpandedQueries(List<String> queries, List<String> languages) {
+    private List<String> findDocumentsWithProcessedQueries(List<String> queries, List<String> languages) {
         for (String query : queries) {
             for (String language : languages) {
                 try {
