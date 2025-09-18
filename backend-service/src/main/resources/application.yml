@@ -23,6 +23,10 @@ preprocessing:
   chunk:
     size: 1000
 
+weaviate:
+  similarity:
+    threshold: 0.7
+
 app:
   upload:
     dir: ${UPLOAD_DIR:/app/uploads}

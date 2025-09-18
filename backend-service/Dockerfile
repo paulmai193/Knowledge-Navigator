@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy Gradle wrapper and build files for better caching
 COPY gradle gradle
-COPY gradlew build.gradle settings.gradle ./
+COPY ./gradlew build.gradle settings.gradle ./
 
 # Download dependencies (cached layer)
 RUN ./gradlew dependencies --no-daemon

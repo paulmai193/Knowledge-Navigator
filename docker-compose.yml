@@ -28,15 +28,15 @@ services:
     networks:
       - knowledge-navigator-network
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: knowledge-navigator-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - knowledge-navigator-network
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: knowledge-navigator-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - knowledge-navigator-network
 
   backend-service:
     build:
@@ -54,7 +54,7 @@ services:
     depends_on:
       - mongodb
       - weaviate
-      - ollama
+      # - ollama
     networks:
       - knowledge-navigator-network
 
@@ -65,16 +65,18 @@ services:
     container_name: knowledge-navigator-ai
     ports:
       - "8002:8002"
+    env_file:
+      - .env
     environment:
       MONGO_URL: mongodb://mongodb:27017/knowledge_navigator
-      OLLAMA_URL: http://ollama:11434
-      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
-      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
-      OLLAMA_INSIGHT_MODEL: ${OLLAMA_INSIGHT_MODEL:-llama3.2}
-      OLLAMA_QA_MODEL: ${OLLAMA_QA_MODEL:-llama3.2}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      # OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
+      # OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      # OLLAMA_INSIGHT_MODEL: ${OLLAMA_INSIGHT_MODEL:-llama3.2}
+      # OLLAMA_QA_MODEL: ${OLLAMA_QA_MODEL:-llama3.2}
     depends_on:
       - mongodb
-      - ollama
+      # - ollama
     networks:
       - knowledge-navigator-network
 
@@ -95,7 +97,7 @@ services:
 volumes:
   mongodb_data:
   weaviate_data:
-  ollama_data:
+  # ollama_data:
 
 networks:
   knowledge-navigator-network:
